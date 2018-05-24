@@ -5,11 +5,11 @@ Use the Data Freshness Report dataset to identify all datasets to be inspected b
 For each dataset, request records from Socrata, inventory nulls in records, and repeat until all records have been
  processed.
 Identify datasets without nulls, with nulls, and problem datasets that couldn't be processed.
-Output a csv file providing an overview of the entire process findings, a csv file providing information on each
- dataset with nulls including insight by column, a csv file capturing all problematic datasets, and a csv file
+Output a csv file providing an overview of the entire process findings, a csv file providing information on
+ datasets with nulls and include insights by column, a csv file capturing all problematic datasets, and a csv file
  reporting on the performance of the script.
 Author: CJuice
-Date: 20180501
+Date: 20180524
 Revisions:
 
 PENDING FUNCTIONALITY:
@@ -20,6 +20,7 @@ Multiprocessing use for speed. Note: No null records are "seen" and no csv files
  multiprocessor approach is used. I think multiprocessing makes copies of this script for use in each processor
  so they are not sharing the same variables. I think this may be the issue.
 """
+#TODO: plug into the socrata python api and load data via that route
 
 # IMPORTS
 from collections import namedtuple
@@ -30,7 +31,6 @@ import re
 import time
 import urllib2
 from functools import partial
-from multiprocessing import Pool
 from multiprocessing.pool import ThreadPool
 
 process_start_time = time.time()
@@ -40,6 +40,7 @@ Variable = namedtuple("Variable", ["value"])
 CORRECTIONAL_ENTERPRISES_EMPLOYEES_API_ID = Variable("mux9-y6mb")
 CORRECTIONAL_ENTERPRISES_EMPLOYEES_JSON_FILE = Variable("MarylandCorrectionalEnterprises_JSON.json")
 DATA_FRESHNESS_REPORT_API_ID = Variable("t8k3-edvn")
+FIELD_LEVEL_STATS_FILE_NAME = Variable("_FIELD_LEVEL_STATS")
 LIMIT_MAX_AND_OFFSET = Variable(20000)
 MD_STATEWIDE_VEHICLE_CRASH_STARTSWITH = Variable("Maryland Statewide Vehicle Crashes")
 OVERVIEW_STATS_FILE_NAME = Variable("_OVERVIEW_STATS")
@@ -47,7 +48,7 @@ PERFORMANCE_SUMMARY_FILE_NAME = Variable("__script_performance_summary")
 PROBLEM_DATASETS_FILE_NAME = Variable("_PROBLEM_DATASETS")
 REAL_PROPERTY_HIDDEN_NAMES_API_ID = Variable("ed4q-f8tm")
 REAL_PROPERTY_HIDDEN_NAMES_JSON_FILE = Variable("RealPropertyHiddenOwner_JSON.json")
-ROOT_PATH_FOR_CSV_OUTPUT = Variable(r"E:\DoIT_OpenDataInspection_Project\OUTPUT_CSVs")
+ROOT_PATH_FOR_CSV_OUTPUT = Variable(r"E:\DoIT_OpenDataInspection_ToSocrata\OUTPUT_CSVs")
 ROOT_URL_FOR_DATASET_ACCESS = Variable(r"https://data.maryland.gov/resource/")
 THREAD_COUNT = Variable(8)
 
@@ -66,7 +67,7 @@ def build_csv_file_name_with_date(today_date_string, filename):
     """
     return "{}_{}.csv".format(today_date_string, filename)
 
-def build_dataset_url(url_root, api_id, limit_amount, offset, total_count):
+def build_dataset_url(url_root, api_id, limit_amount=0, offset=0, total_count=None):
     """
     Build the url used for each request for data from socrata
 
@@ -78,7 +79,9 @@ def build_dataset_url(url_root, api_id, limit_amount, offset, total_count):
     :return: String url
     """
     # if the record count exceeds the initial limit then the url must include offset parameter
-    if total_count >= LIMIT_MAX_AND_OFFSET.value:
+    if total_count == None and limit_amount == 0 and offset == 0:
+        return "{}{}".format(url_root, api_id)
+    elif total_count >= LIMIT_MAX_AND_OFFSET.value:
         return "{}{}.json?$limit={}&$offset={}".format(url_root, api_id, limit_amount, offset)
     else:
         return "{}{}.json?$limit={}".format(url_root, api_id, limit_amount)
@@ -93,8 +96,8 @@ def build_datasets_inventory(freshness_report_json_objects):
     datasets_dictionary = {}
     for record_obj in freshness_report_json_objects:
         dataset_name = record_obj["dataset_name"]
-        api_id = record_obj["link"]
-        datasets_dictionary[dataset_name] = os.path.basename(api_id)
+        api_id = os.path.basename(record_obj["link"])
+        datasets_dictionary[dataset_name] = api_id
     return datasets_dictionary
 
 def build_today_date_string():
@@ -105,23 +108,18 @@ def build_today_date_string():
     """
     return "{:%Y%m%d}".format(date.today())
 
-def calculate_percent_null_for_dataset(null_count_total, total_records_processed, number_of_fields_in_dataset):
+def calculate_percent_null_for_dataset(null_count_total, total_number_of_values_in_dataset):
     """
     Calculate the percent of all possible data values, not rows or columns, that are null
 
     :param null_count_total: Total number of null values
-    :param total_records_processed: Total number or records processed
-    :param number_of_fields_in_dataset: Total number of columns in the dataset
+    :param total_number_of_values_in_dataset: Total records times Number of fields
     :return: Percent value as a float
     """
-    if number_of_fields_in_dataset is None:
-        return 0
+    if total_number_of_values_in_dataset == 0:
+        return 0.0
     else:
-        total_number_of_values_in_dataset = float(total_records_processed*number_of_fields_in_dataset)
-        if total_number_of_values_in_dataset == 0:
-            return 0
-        else:
-            return (float(null_count_total/total_number_of_values_in_dataset)*100)
+        return float(null_count_total / total_number_of_values_in_dataset) * 100.0
 
 def calculate_time_taken(start_time):
     """
@@ -140,6 +138,18 @@ def calculate_total_number_of_empty_values_per_dataset(null_counts_list):
     :return: Integer value representing total
     """
     return sum(null_counts_list)
+
+def calculate_total_number_of_values_in_dataset(total_records_processed, number_of_fields_in_dataset):
+    """
+
+    :param total_records_processed: Total number or records processed
+    :param number_of_fields_in_dataset: Total number of columns in the dataset
+    :return:
+    """
+    if number_of_fields_in_dataset is None:
+        return 0
+    else:
+        return float(total_records_processed * number_of_fields_in_dataset)
 
 def generate_freshness_report_json_objects(dataset_url):
     """
@@ -241,64 +251,83 @@ def read_json_file(file_path):
         filecontents = file_handler.read()
     return filecontents
 
-def write_dataset_results_to_csv(dataset_name, root_file_destination_location, filename, dataset_inspection_results, total_records, processing_time):
+def write_dataset_results_to_csv(dataset_name, hyperlink, api_id, root_file_destination_location, filename,
+                                 dataset_inspection_results, total_number_of_dataset_records, date_analyzed):
     """
     Write a csv file containing the analysis results specific to a single dataset
 
     :param dataset_name: Name of the dataset of interest
-    :param root_file_destination_location: Path to the location where the file directory where the file will be created
-    :param filename: Name of the file, specific to each dataset
+    :param hyperlink: url to Socrata data
+    :param api_id: Socrata api ID
+    :param root_file_destination_location: Path to the location of the file directory where the file will be created
+    :param filename: Name of the file for field level results of datasets
     :param dataset_inspection_results: Results of the data set inspection for null values
-    :param total_records: Total number of records in the dataset
-    :param processing_time: Time it took to process the dataset
-    :return: None
-    """
-    file_path = os.path.join(root_file_destination_location, filename)
-    try:
-        with open(file_path, 'w') as file_handler:
-            file_handler.write("{}\n".format(dataset_name))
-            file_handler.write("RECORD COUNT TOTAL,{}\n".format(total_records))
-            file_handler.write("PROCESSING TIME,{}\n".format(processing_time))
-            file_handler.write("FIELD NAME,NULL COUNT,PERCENT\n")
-            for key, value in dataset_inspection_results.items():
-                percent = 0
-                if total_records > 0:
-                    percent = (value / float(total_records))*100
-                file_handler.write("{},{},{:6.2f}\n".format(key, value, percent))
-    except IOError as io_err:
-        print(io_err)
-        exit()
-    return
-
-def write_overview_stats_to_csv(root_file_destination_location, filename, dataset_name, dataset_csv_file_name, total_number_of_dataset_columns, total_number_of_dataset_records, data_provider, total_number_of_null_fields=0, percent_null=0):
-    """
-    Write analysis results for entire process, as an overview of all datasets, to .csv
-    :param root_file_destination_location: Path to the location where the file directory where the file will be created
-    :param filename: Name of the overview analysis file
-    :param dataset_name: Name of the dataset of interest
-    :param dataset_csv_file_name: Filename of the dataset of interest
-    :param total_number_of_dataset_columns: Total number of columns in dataset of interest
-    :param total_number_of_dataset_records: Total number of records in dataset of interest
-    :param data_provider: Data provider for dataset of interest
-    :param total_number_of_null_fields: Total number of null fields for dataset of interest
-    :param percent_null: The percent null for the dataset of interest
+    :param total_number_of_dataset_records: Total number of records in the dataset
+    :param date_analyzed: Date stamp to enable time comparisons between runs of data
     :return: None
     """
     file_path = os.path.join(root_file_destination_location, filename)
     try:
         if not os.path.exists(file_path):
-            with open(file_path, "w") as file_handler:
-                file_handler.write("DATASET NAME,FILE NAME,TOTAL COLUMN COUNT,TOTAL RECORD COUNT,TOTAL NULL VALUE COUNT,PERCENT NULL,DATA PROVIDER\n")
+            with open(file_path, 'w') as file_handler:
+                # file_handler.write("{}\n".format(dataset_name))
+                # file_handler.write("RECORD COUNT TOTAL,{}\n".format(total_records))
+                # file_handler.write("PROCESSING TIME,{}\n".format(processing_time))
+                file_handler.write("DATASET NAME,FIELD NAME,TOTAL NULL VALUE COUNT,TOTAL RECORD COUNT,PERCENT NULL,HYPERLINK,DATASET ID,FIELD ID,DATE\n")
+        else:
+            with open(file_path, 'a') as file_handler:
+                for field_name_key, null_count_value in dataset_inspection_results.items():
+                    unique_field_id = "{}.{}".format(api_id,field_name_key)
+                    percent = 0.0
+                    if total_number_of_dataset_records > 0:
+                        percent = (null_count_value / float(total_number_of_dataset_records)) * 100.0
+                    file_handler.write("{},{},{},{},{:6.2f},{},{},{},{}\n".format(dataset_name, field_name_key, null_count_value, total_number_of_dataset_records, percent, hyperlink, api_id, unique_field_id, date_analyzed))
+    except IOError as io_err:
+        print(io_err)
+        exit()
+    return
+
+def write_overview_stats_to_csv(api_id, dataset_name, hyperlink, root_file_destination_location, filename,
+                                total_number_of_dataset_columns, total_number_of_dataset_records, data_provider,
+                                date_analyzed, total_number_of_values=0, total_number_of_null_fields=0,
+                                percent_null=0.0):
+    """
+    Write analysis results for entire process, as an overview of all datasets, to .csv
+
+    :param api_id: Socrata api ID
+    :param dataset_name: Name of the dataset of interest
+    :param hyperlink: url to Socrata dataset
+    :param root_file_destination_location: Path to the location where the file directory where the file will be created
+    :param filename: Name of the overview analysis file
+    :param total_number_of_dataset_columns: Total number of columns in dataset of interest
+    :param total_number_of_dataset_records: Total number of records in dataset of interest
+    :param data_provider: Data provider for dataset of interest
+    :param total_number_of_values: Number of columns times number of rows
+    :param total_number_of_null_fields: Total number of null fields for dataset of interest
+    :param percent_null: The percent null for the dataset of interest
+    :param date_analyzed: Date stamp to enable time comparisons between runs of data
+    :return: None
+    """
+
+    file_path = os.path.join(root_file_destination_location, filename)
+    try:
         if os.path.exists(file_path):
             with open(file_path, 'a') as file_handler:
-                file_handler.write("{},{},{},{},{},{:6.2f},{}\n".format(dataset_name,
-                                                                     dataset_csv_file_name,
-                                                                     total_number_of_dataset_columns,
-                                                                     total_number_of_dataset_records,
-                                                                     total_number_of_null_fields,
-                                                                     percent_null,
-                                                                     data_provider)
+                file_handler.write("{},{},{},{},{},{},{:6.2f},{},{},{}\n".format(dataset_name,
+                                                                                 hyperlink,
+                                                                                 total_number_of_dataset_columns,
+                                                                                 total_number_of_dataset_records,
+                                                                                 total_number_of_values,
+                                                                                 total_number_of_null_fields,
+                                                                                 percent_null,
+                                                                                 api_id,
+                                                                                 data_provider,
+                                                                                 date_analyzed
+                                                                                 )
                                    )
+        else:
+            with open(file_path, "w") as file_handler:
+                file_handler.write("DATASET NAME,HYPERLINK,TOTAL COLUMN COUNT,TOTAL RECORD COUNT,TOTAL VALUE COUNT,TOTAL NULL VALUE COUNT,PERCENT NULL,DATASET ID,DATA PROVIDER,DATE\n")
     except IOError as io_err:
         print(io_err)
         exit()
@@ -327,7 +356,10 @@ def write_problematic_datasets_to_csv(root_file_destination_location, filename, 
         exit()
     return
 
-def write_script_performance_summary(root_file_destination_location, filename, start_time, number_of_datasets_in_data_freshness_report, dataset_counter, valid_nulls_dataset_counter, valid_no_null_dataset_counter, problem_dataset_counter):
+def write_script_performance_summary(root_file_destination_location, filename, start_time,
+                                     number_of_datasets_in_data_freshness_report, dataset_counter,
+                                     valid_nulls_dataset_counter, valid_no_null_dataset_counter,
+                                     problem_dataset_counter):
     """
     Write a summary file that details the performance of this script during processing
 
@@ -361,9 +393,10 @@ def write_script_performance_summary(root_file_destination_location, filename, s
 def main():
 
     # Initiate csv report files
-    problem_datasets_csv_filename = build_csv_file_name_with_date(
-        today_date_string=build_today_date_string(),
-        filename=PROBLEM_DATASETS_FILE_NAME.value)
+    problem_datasets_csv_filename = build_csv_file_name_with_date(today_date_string=build_today_date_string(),
+                                                                  filename=PROBLEM_DATASETS_FILE_NAME.value)
+    field_level_csv_filename = build_csv_file_name_with_date(today_date_string=build_today_date_string(),
+                                                             filename=FIELD_LEVEL_STATS_FILE_NAME.value)
     overview_csv_filename = build_csv_file_name_with_date(today_date_string=build_today_date_string(),
                                                           filename=OVERVIEW_STATS_FILE_NAME.value)
 
@@ -379,11 +412,13 @@ def main():
     dict_of_socrata_dataset_providers = {}
     for record_obj in freshness_report_json_objects:
         data_freshness_dataset_name = (record_obj["dataset_name"]).encode("utf8")
-        data_freshness_report_dataset_name_noillegal = handle_illegal_characters_in_string(string_with_illegals=data_freshness_dataset_name,
-                                                           spaces_allowed=True)
+        data_freshness_report_dataset_name_noillegal = handle_illegal_characters_in_string(
+            string_with_illegals=data_freshness_dataset_name,
+            spaces_allowed=True)
         data_freshness_data_provider = (record_obj["data_provided_by"]).encode("utf8")
-        provider_name_noillegal = handle_illegal_characters_in_string(string_with_illegals=data_freshness_data_provider,
-                                                            spaces_allowed=True)
+        provider_name_noillegal = handle_illegal_characters_in_string(
+            string_with_illegals=data_freshness_data_provider,
+            spaces_allowed=True)
         dict_of_socrata_dataset_providers[data_freshness_report_dataset_name_noillegal] = os.path.basename(provider_name_noillegal)
 
     # Variables for next lower scope (alphabetic)
@@ -393,6 +428,7 @@ def main():
     valid_nulls_dataset_counter = 0
 
     # Need to inventory field names of every dataset and tally null/empty values
+
     for dataset_name, dataset_api_id in dict_of_socrata_dataset_IDs.items():
         dataset_start_time = time.time()
         # Handle occasional error when writing unicode to string using format. sometimes "-" was problematic
@@ -400,16 +436,19 @@ def main():
             string_with_illegals=dataset_name.encode("utf8"),
             spaces_allowed=True)
         dataset_api_id = dataset_api_id.encode("utf8")
-#____________________________________________________________________________________________________________
+        url_socrata_data_page = build_dataset_url(url_root=ROOT_URL_FOR_DATASET_ACCESS.value,
+                                                  api_id=dataset_api_id)
+#_______________________________________________________________________________________________________________________
         # FOR TESTING - avoid huge datasets on test runs
         huge_datasets_api_s = (REAL_PROPERTY_HIDDEN_NAMES_API_ID.value,)
         if dataset_api_id in huge_datasets_api_s:
             print("Dataset Skipped Intentionally (TESTING): {}".format(dataset_name_with_spaces_but_no_illegal))
             continue
-#____________________________________________________________________________________________________________
+#_______________________________________________________________________________________________________________________
 
         dataset_counter += 1
-        print("{}: {} ............. {}".format(dataset_counter, dataset_name_with_spaces_but_no_illegal.upper(), dataset_api_id))
+        print("{}: {} ............. {}".format(dataset_counter, dataset_name_with_spaces_but_no_illegal.upper(),
+                                               dataset_api_id))
 
         # Variables for next lower scope (alphabetic)
         dataset_fields_string = None
@@ -521,7 +560,6 @@ def main():
 
             partial_function_for_multithreading = partial(inspect_record_for_null_values,
                                                           null_count_for_each_field_dict)
-            # pool = Pool()
             pool = ThreadPool(THREAD_COUNT.value)
             pool.map(partial_function_for_multithreading, json_objects_pythondict)
             pool.close()
@@ -542,10 +580,12 @@ def main():
         #   to a csv of problematic datasets, and to the overview for all datasets.
         total_number_of_null_values = calculate_total_number_of_empty_values_per_dataset(
             null_counts_list=null_count_for_each_field_dict.values())
-        percent_of_dataset_are_null_values = calculate_percent_null_for_dataset(
-            null_count_total=total_number_of_null_values,
+        total_number_of_values_in_dataset = calculate_total_number_of_values_in_dataset(
             total_records_processed=total_record_count,
             number_of_fields_in_dataset=number_of_columns_in_dataset)
+        percent_of_dataset_are_null_values = calculate_percent_null_for_dataset(
+            null_count_total=total_number_of_null_values,
+            total_number_of_values_in_dataset=total_number_of_values_in_dataset)
 
         if is_problematic:
             problem_dataset_counter += 1
@@ -553,45 +593,38 @@ def main():
                                               filename=problem_datasets_csv_filename,
                                               dataset_name=dataset_name_with_spaces_but_no_illegal,
                                               message=problem_message,
-                                              resource=problem_resource)
-        elif total_number_of_null_values > 0:
-            valid_nulls_dataset_counter += 1
-
-            # Write each datasets stats to its own csv
-            dataset_name_no_spaces_no_illegal = handle_illegal_characters_in_string(string_with_illegals=dataset_name)
-            dataset_csv_filename = build_csv_file_name_with_date(today_date_string=build_today_date_string(),
-                                                                 filename=dataset_name_no_spaces_no_illegal)
-            # dataset_csv_file_path = os.path.join(ROOT_PATH_FOR_CSV_OUTPUT.value, dataset_csv_filename)
-            write_dataset_results_to_csv(dataset_name=dataset_name_with_spaces_but_no_illegal,
-                                         root_file_destination_location=ROOT_PATH_FOR_CSV_OUTPUT.value,
-                                         filename=dataset_csv_filename,
-                                         dataset_inspection_results=null_count_for_each_field_dict,
-                                         total_records=total_record_count,
-                                         processing_time=calculate_time_taken(dataset_start_time))
-
-            # Append the overview stats for each dataset to the overview stats csv
-            write_overview_stats_to_csv(root_file_destination_location=ROOT_PATH_FOR_CSV_OUTPUT.value,
-                                        filename=overview_csv_filename,
-                                        dataset_name=dataset_name_with_spaces_but_no_illegal,
-                                        dataset_csv_file_name=dataset_csv_filename,
-                                        total_number_of_dataset_columns=number_of_columns_in_dataset,
-                                        total_number_of_dataset_records=total_record_count,
-                                        data_provider=dict_of_socrata_dataset_providers[dataset_name_with_spaces_but_no_illegal],
-                                        total_number_of_null_fields=total_number_of_null_values,
-                                        percent_null=percent_of_dataset_are_null_values)
+                                              resource=problem_resource
+                                              )
         else:
-            valid_no_null_dataset_counter += 1
+            if total_number_of_null_values > 0:
+                valid_nulls_dataset_counter += 1
+            else:
+                valid_no_null_dataset_counter += 1
+
+            # Append dataset results to the field level stats file
+            write_dataset_results_to_csv(dataset_name=dataset_name_with_spaces_but_no_illegal,
+                                         hyperlink=url_socrata_data_page,
+                                         api_id=dataset_api_id,
+                                         root_file_destination_location=ROOT_PATH_FOR_CSV_OUTPUT.value,
+                                         filename=field_level_csv_filename,
+                                         dataset_inspection_results=null_count_for_each_field_dict,
+                                         total_number_of_dataset_records=total_record_count,
+                                         date_analyzed=build_today_date_string()
+                                         )
 
             # Append the overview stats for each dataset to the overview stats csv
-            write_overview_stats_to_csv(root_file_destination_location=ROOT_PATH_FOR_CSV_OUTPUT.value,
-                                        filename=overview_csv_filename,
+            write_overview_stats_to_csv(api_id=dataset_api_id,
                                         dataset_name=dataset_name_with_spaces_but_no_illegal,
-                                        dataset_csv_file_name=None,
+                                        hyperlink=url_socrata_data_page,
+                                        root_file_destination_location=ROOT_PATH_FOR_CSV_OUTPUT.value,
+                                        filename=overview_csv_filename,
                                         total_number_of_dataset_columns=number_of_columns_in_dataset,
                                         total_number_of_dataset_records=total_record_count,
+                                        total_number_of_values=total_number_of_values_in_dataset,
                                         data_provider=dict_of_socrata_dataset_providers[dataset_name_with_spaces_but_no_illegal],
                                         total_number_of_null_fields=total_number_of_null_values,
-                                        percent_null=percent_of_dataset_are_null_values
+                                        percent_null=percent_of_dataset_are_null_values,
+                                        date_analyzed=build_today_date_string()
                                         )
 
     performance_summary_filename = build_csv_file_name_with_date(today_date_string=build_today_date_string(),
@@ -603,7 +636,8 @@ def main():
                                      dataset_counter=dataset_counter,
                                      valid_nulls_dataset_counter=valid_nulls_dataset_counter,
                                      valid_no_null_dataset_counter=valid_no_null_dataset_counter,
-                                     problem_dataset_counter=problem_dataset_counter)
+                                     problem_dataset_counter=problem_dataset_counter
+                                     )
 
     print("Process time (minutes) = {:4.2f}\n".format((time.time()-process_start_time)/60.0))
 

@@ -1,10 +1,5 @@
-
 .idea/*
-.idea
-DataFreshness.py
-DataInspection.py
-testing1.py
-test.py
+*.idea
 OUTPUT_CSVs
 RealPropertyHiddenOwner_JSON.json
 MarylandCorrectionalEnterprises_JSON.json

@@ -9,4 +9,4 @@ Output a csv file providing an overview of the entire process findings, a csv fi
  dataset with nulls including insight by column, a csv file capturing all problematic datasets, and a csv file
  reporting on the performance of the script.
 Author: CJuice
-Date: 20180501
+Date:
