@@ -29,7 +29,7 @@ import json
 import os
 import re
 import time
-import urllib2
+import requests
 from functools import partial
 from multiprocessing.pool import ThreadPool
 
@@ -160,18 +160,16 @@ def generate_freshness_report_json_objects(dataset_url):
     """
     json_objects = None
     url = dataset_url
-    req = urllib2.Request(url)
     try:
-        response = urllib2.urlopen(req)
-    except urllib2.URLError as e:
+        response = requests.get(url)
+    except Exception as e:
         if hasattr(e, "reason"):
             print("build_datasets_inventory(): Failed to reach a server. Reason: {}".format(e.reason))
         elif hasattr(e, "code"):
             print("build_datasets_inventory(): The server couldn't fulfill the request. Error Code: {}".format(e.code))
         exit()
     else:
-        html = response.read()
-        json_objects = json.loads(html)
+        json_objects = response.json()
     return json_objects
 
 def grab_field_names_for_mega_columned_datasets(socrata_json_object):
@@ -270,9 +268,6 @@ def write_dataset_results_to_csv(dataset_name, hyperlink, api_id, root_file_dest
     try:
         if not os.path.exists(file_path):
             with open(file_path, 'w') as file_handler:
-                # file_handler.write("{}\n".format(dataset_name))
-                # file_handler.write("RECORD COUNT TOTAL,{}\n".format(total_records))
-                # file_handler.write("PROCESSING TIME,{}\n".format(processing_time))
                 file_handler.write("DATASET NAME,FIELD NAME,TOTAL NULL VALUE COUNT,TOTAL RECORD COUNT,PERCENT NULL,HYPERLINK,DATASET ID,FIELD ID,DATE\n")
         else:
             with open(file_path, 'a') as file_handler:
@@ -411,11 +406,11 @@ def main():
     number_of_datasets_in_data_freshness_report = len(dict_of_socrata_dataset_IDs)
     dict_of_socrata_dataset_providers = {}
     for record_obj in freshness_report_json_objects:
-        data_freshness_dataset_name = (record_obj["dataset_name"]).encode("utf8")
+        data_freshness_dataset_name = (record_obj["dataset_name"]) #.encode("utf8")
         data_freshness_report_dataset_name_noillegal = handle_illegal_characters_in_string(
             string_with_illegals=data_freshness_dataset_name,
             spaces_allowed=True)
-        data_freshness_data_provider = (record_obj["data_provided_by"]).encode("utf8")
+        data_freshness_data_provider = (record_obj["data_provided_by"]) #.encode("utf8")
         provider_name_noillegal = handle_illegal_characters_in_string(
             string_with_illegals=data_freshness_data_provider,
             spaces_allowed=True)
@@ -430,12 +425,11 @@ def main():
     # Need to inventory field names of every dataset and tally null/empty values
 
     for dataset_name, dataset_api_id in dict_of_socrata_dataset_IDs.items():
-        dataset_start_time = time.time()
+        # dataset_start_time = time.time()
         # Handle occasional error when writing unicode to string using format. sometimes "-" was problematic
         dataset_name_with_spaces_but_no_illegal = handle_illegal_characters_in_string(
-            string_with_illegals=dataset_name.encode("utf8"),
+            string_with_illegals=dataset_name,
             spaces_allowed=True)
-        dataset_api_id = dataset_api_id.encode("utf8")
         url_socrata_data_page = build_dataset_url(url_root=ROOT_URL_FOR_DATASET_ACCESS.value,
                                                   api_id=dataset_api_id)
 #_______________________________________________________________________________________________________________________
@@ -484,11 +478,9 @@ def main():
                                     total_count=total_record_count)
             print(url)
 
-            request = urllib2.Request(url)
-
             try:
-                socrata_url_response = urllib2.urlopen(request)
-            except urllib2.URLError as e:
+                socrata_url_response = requests.get(url)
+            except Exception as e:
                 problem_resource = url
                 is_problematic = True
                 if hasattr(e, "reason"):
@@ -503,14 +495,15 @@ def main():
             # Only need to get the list of socrata response keys the first time through
             if socrata_response_info_key_list == None:
                 socrata_response_info_key_list = []
-                for key in socrata_url_response.info().keys():
+                for key in socrata_url_response.headers.keys():
                     socrata_response_info_key_list.append(key.lower())
             else:
                 pass
 
+
             # Only need to get the field headers the first time through
             if dataset_fields_string == None and "x-soda2-fields" in socrata_response_info_key_list:
-                dataset_fields_string = socrata_url_response.info()["X-SODA2-Fields"]
+                dataset_fields_string = socrata_url_response.headers["X-SODA2-Fields"]
             elif dataset_fields_string == None and "x-soda2-fields" not in socrata_response_info_key_list:
                 is_special_too_many_headers_dataset = True
             else:
@@ -547,13 +540,13 @@ def main():
             if number_of_columns_in_dataset == None:
                 number_of_columns_in_dataset = len(field_headers)
 
-            response_string = socrata_url_response.read()
-            json_objects_pythondict = json.loads(response_string)
+            response_list_of_dicts = socrata_url_response.json()
 
             # Some datasets are html or other type but socrata returns an empty object rather than a json object with
             #   reason or code. These datasets are then not recognized as problematic and throw off the tracking counts.
-            if len(json_objects_pythondict) == 0:
-                problem_message = "Response json object was empty"
+            # if len(json_objects_pythondict) == 0:
+            if len(response_list_of_dicts) == 0:
+                problem_message = "Response object was empty"
                 problem_resource = url
                 is_problematic = True
                 break
@@ -561,10 +554,10 @@ def main():
             partial_function_for_multithreading = partial(inspect_record_for_null_values,
                                                           null_count_for_each_field_dict)
             pool = ThreadPool(THREAD_COUNT.value)
-            pool.map(partial_function_for_multithreading, json_objects_pythondict)
+            pool.map(partial_function_for_multithreading, response_list_of_dicts)
             pool.close()
             pool.join()
-            record_count_increase = len(json_objects_pythondict)
+            record_count_increase = len(response_list_of_dicts)
             cycle_record_count += record_count_increase
             total_record_count += record_count_increase
 
