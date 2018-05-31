@@ -20,8 +20,6 @@ Multiprocessing use for speed. Note: No null records are "seen" and no csv files
  multiprocessor approach is used. I think multiprocessing makes copies of this script for use in each processor
  so they are not sharing the same variables. I think this may be the issue.
 """
-#TODO: plug into the socrata python api and load data via that route
-
 # IMPORTS
 from collections import namedtuple
 from datetime import date
@@ -32,6 +30,7 @@ import time
 import requests
 from functools import partial
 from multiprocessing.pool import ThreadPool
+from sodapy import Socrata
 
 process_start_time = time.time()
 
@@ -41,15 +40,18 @@ CORRECTIONAL_ENTERPRISES_EMPLOYEES_API_ID = Variable("mux9-y6mb")
 CORRECTIONAL_ENTERPRISES_EMPLOYEES_JSON_FILE = Variable("MarylandCorrectionalEnterprises_JSON.json")
 DATA_FRESHNESS_REPORT_API_ID = Variable("t8k3-edvn")
 FIELD_LEVEL_STATS_FILE_NAME = Variable("_FIELD_LEVEL_STATS")
+FIELD_LEVEL_STATS_SOCRATA_HEADERS = Variable(['DATASET NAME', 'FIELD NAME', 'TOTAL NULL VALUE COUNT', 'TOTAL RECORD COUNT', 'PERCENT NULL', 'HYPERLINK', 'DATASET ID', 'FIELD ID', 'DATE'])
 LIMIT_MAX_AND_OFFSET = Variable(10000)
 MD_STATEWIDE_VEHICLE_CRASH_STARTSWITH = Variable("Maryland Statewide Vehicle Crashes")
 OVERVIEW_STATS_FILE_NAME = Variable("_OVERVIEW_STATS")
+OVERVIEW_STATS_SOCRATA_HEADERS = Variable(['DATASET NAME', 'HYPERLINK', 'TOTAL COLUMN COUNT', 'TOTAL RECORD COUNT', 'TOTAL VALUE COUNT', 'TOTAL NULL VALUE COUNT', 'PERCENT NULL', 'DATASET ID', 'DATA PROVIDER', 'DATE'])
 PERFORMANCE_SUMMARY_FILE_NAME = Variable("__script_performance_summary")
 PROBLEM_DATASETS_FILE_NAME = Variable("_PROBLEM_DATASETS")
 REAL_PROPERTY_HIDDEN_NAMES_API_ID = Variable("ed4q-f8tm")
 REAL_PROPERTY_HIDDEN_NAMES_JSON_FILE = Variable("RealPropertyHiddenOwner_JSON.json")
 ROOT_PATH_FOR_CSV_OUTPUT = Variable(r"E:\DoIT_OpenDataInspection_ToSocrata\OUTPUT_CSVs")
 ROOT_URL_FOR_DATASET_ACCESS = Variable(r"https://data.maryland.gov/resource/")
+SOCRATA_CREDENTIALS_JSON_FILE = Variable(r"E:\Credentials_OpenDataInspector_ToSocrata.json")
 THREAD_COUNT = Variable(8)
 
 assert os.path.exists(REAL_PROPERTY_HIDDEN_NAMES_JSON_FILE.value)
@@ -57,6 +59,42 @@ assert os.path.exists(CORRECTIONAL_ENTERPRISES_EMPLOYEES_JSON_FILE.value)
 
 
 # FUNCTIONS (alphabetic)
+
+# def generate_output_string_field_level(dataset_name, hyperlink, api_id,dataset_inspection_results, total_number_of_dataset_records, date_analyzed):
+#     #headers
+#     #"DATASET NAME,FIELD NAME,TOTAL NULL VALUE COUNT,TOTAL RECORD COUNT,PERCENT NULL,HYPERLINK,DATASET ID,FIELD ID,DATE\n"
+#     for field_name_key, null_count_value in dataset_inspection_results.items():
+#         unique_field_id = "{}.{}".format(api_id, field_name_key)
+#         percent = 0.0
+#         if total_number_of_dataset_records > 0:
+#             percent = (null_count_value / float(total_number_of_dataset_records)) * 100.0
+#         yield "{},{},{},{},{:6.2f},{},{},{},{}\n".format(dataset_name,
+#                                                field_name_key,
+#                                                null_count_value,
+#                                                total_number_of_dataset_records,
+#                                                percent,
+#                                                hyperlink,
+#                                                api_id,
+#                                                unique_field_id,
+#                                                date_analyzed)
+#     pass
+# def generate_output_string_overview_level(api_id=None, dataset_name=None, hyperlink=None,
+#                                 total_number_of_dataset_columns=None, total_number_of_dataset_records=None, data_provider=None,
+#                                 date_analyzed=None, total_number_of_values=0, total_number_of_null_fields=0,
+#                                 percent_null=0.0):
+#     "{},{},{},{},{},{},{:6.2f},{},{},{}\n".format(dataset_name,
+#                                                   hyperlink,
+#                                                   total_number_of_dataset_columns,
+#                                                   total_number_of_dataset_records,
+#                                                   total_number_of_values,
+#                                                   total_number_of_null_fields,
+#                                                   percent_null,
+#                                                   api_id,
+#                                                   data_provider,
+#                                                   date_analyzed
+#                                                   )
+#     pass
+
 def build_csv_file_name_with_date(today_date_string, filename):
     """
     Build a string, ending in .csv, that contains todays date and the input file name
@@ -106,7 +144,7 @@ def build_today_date_string():
 
     :return: string representing date formatted as Year Month Day
     """
-    return "{:%Y%m%d}".format(date.today())
+    return "{:%Y-%m-%d}".format(date.today())
 
 def calculate_percent_null_for_dataset(null_count_total, total_number_of_values_in_dataset):
     """
@@ -392,6 +430,30 @@ def write_script_performance_summary(root_file_destination_location, filename, s
         exit()
     return
 
+def get_dataset_identifier(credentials_json, dataset_key):
+    return credentials_json[dataset_key]["app_id"]
+
+def create_socrata_client(credentials_json, dataset_key):
+    dataset_credentials = credentials_json[dataset_key]
+    access_credentials = credentials_json["access_credentials"]
+    for key, value in dataset_credentials.items():  # Value of None in json is seen as string, need to convert or fails
+        if value == 'None':
+            dataset_credentials[key] = None
+    maryland_domain = dataset_credentials["maryland_domain"]
+    maryland_app_token = dataset_credentials["app_token"]
+    # maryland_dataset_identifier = dataset_credentials["app_id"]
+    username = access_credentials["username"]
+    password = access_credentials["password"]
+    return Socrata(domain=maryland_domain, app_token=maryland_app_token, username=username, password=password)
+
+def make_zipper(dataset_headers_list, record_list):
+    # zip headers and data, make dict from zip result
+    return dict(zip(dataset_headers_list, record_list))
+
+def upsert_to_socrata(client, dataset_identifier, zipper):
+    # upsert
+    client.upsert(dataset_identifier=dataset_identifier, payload=zipper, content_type='json')
+
 # FUNCTIONALITY
 def main():
 
@@ -400,14 +462,14 @@ def main():
                                                                   filename=PROBLEM_DATASETS_FILE_NAME.value)
     write_problematic_datasets_to_csv(root_file_destination_location=ROOT_PATH_FOR_CSV_OUTPUT.value,
                                       filename=problem_datasets_csv_filename)
-    field_level_csv_filename = build_csv_file_name_with_date(today_date_string=build_today_date_string(),
-                                                             filename=FIELD_LEVEL_STATS_FILE_NAME.value)
-    write_dataset_results_to_csv(root_file_destination_location=ROOT_PATH_FOR_CSV_OUTPUT.value,
-                                 filename=field_level_csv_filename)
-    overview_csv_filename = build_csv_file_name_with_date(today_date_string=build_today_date_string(),
-                                                          filename=OVERVIEW_STATS_FILE_NAME.value)
-    write_overview_stats_to_csv(root_file_destination_location=ROOT_PATH_FOR_CSV_OUTPUT.value,
-                                filename=overview_csv_filename)
+    # field_level_csv_filename = build_csv_file_name_with_date(today_date_string=build_today_date_string(),
+    #                                                          filename=FIELD_LEVEL_STATS_FILE_NAME.value)
+    # write_dataset_results_to_csv(root_file_destination_location=ROOT_PATH_FOR_CSV_OUTPUT.value,
+    #                              filename=field_level_csv_filename)
+    # overview_csv_filename = build_csv_file_name_with_date(today_date_string=build_today_date_string(),
+    #                                                       filename=OVERVIEW_STATS_FILE_NAME.value)
+    # write_overview_stats_to_csv(root_file_destination_location=ROOT_PATH_FOR_CSV_OUTPUT.value,
+    #                             filename=overview_csv_filename)
 
     # Need an inventory of all Maryland Socrata datasets; will gather from the data freshness report.
     data_freshness_url = build_dataset_url(url_root=ROOT_URL_FOR_DATASET_ACCESS.value,
@@ -430,6 +492,14 @@ def main():
             spaces_allowed=True)
         dict_of_socrata_dataset_providers[data_freshness_report_dataset_name_noillegal] = os.path.basename(provider_name_noillegal)
 
+    # Socrata related variables, derived
+    credentials_json_file_contents = read_json_file(SOCRATA_CREDENTIALS_JSON_FILE.value)
+    credentials_json = load_json(credentials_json_file_contents)
+    socrata_field_level_dataset_app_id = get_dataset_identifier(credentials_json=credentials_json, dataset_key="field_level_dataset")
+    socrata_overview_level_dataset_app_id = get_dataset_identifier(credentials_json=credentials_json, dataset_key="overview_level_dataset")
+    socrata_client_field_level = create_socrata_client(credentials_json=credentials_json, dataset_key="field_level_dataset")
+    socrata_client_overview_level = create_socrata_client(credentials_json=credentials_json, dataset_key="overview_level_dataset")
+
     # Variables for next lower scope (alphabetic)
     dataset_counter = 0
     problem_dataset_counter = 0
@@ -437,7 +507,6 @@ def main():
     valid_nulls_dataset_counter = 0
 
     # Need to inventory field names of every dataset and tally null/empty values
-
     for dataset_name, dataset_api_id in dict_of_socrata_dataset_IDs.items():
         # dataset_start_time = time.time()
         # Handle occasional error when writing unicode to string using format. sometimes "-" was problematic
@@ -576,8 +645,6 @@ def main():
             cycle_record_count += record_count_increase
             total_record_count += record_count_increase
 
-            print(null_count_for_each_field_dict)
-
             # Any cycle_record_count that equals the max limit indicates another request is needed
             if cycle_record_count == LIMIT_MAX_AND_OFFSET.value:
                 # Give Socrata servers small interval before requesting more
@@ -611,31 +678,58 @@ def main():
             else:
                 valid_no_null_dataset_counter += 1
 
-            # Append dataset results to the field level stats file
-            write_dataset_results_to_csv(root_file_destination_location=ROOT_PATH_FOR_CSV_OUTPUT.value,
-                                         filename=field_level_csv_filename,
-                                         dataset_name=dataset_name_with_spaces_but_no_illegal,
-                                         hyperlink=url_socrata_data_page,
-                                         api_id=dataset_api_id,
-                                         dataset_inspection_results=null_count_for_each_field_dict,
-                                         total_number_of_dataset_records=total_record_count,
-                                         date_analyzed=build_today_date_string()
-                                         )
+            # Field Level
+            for field_name_key, null_count_value in null_count_for_each_field_dict.items():
+                unique_field_id = "{}.{}".format(dataset_api_id, field_name_key)
+                percent = 0.0
+                if total_record_count > 0:
+                    percent = (null_count_value / float(total_record_count)) * 100.0
+                field_level_record_list = [dataset_name_with_spaces_but_no_illegal, field_name_key, null_count_value,
+                                           total_record_count, percent, url_socrata_data_page, dataset_api_id,
+                                           unique_field_id, build_today_date_string()]
+                zipper_field_level = make_zipper(dataset_headers_list=FIELD_LEVEL_STATS_SOCRATA_HEADERS.value,
+                                                 record_list=field_level_record_list)
+                upsert_to_socrata(client=socrata_client_field_level, dataset_identifier=socrata_field_level_dataset_app_id, zipper=zipper_field_level)
 
+            # Overview Level
+            overview_level_record_list = [dataset_name_with_spaces_but_no_illegal, url_socrata_data_page,
+                                    number_of_columns_in_dataset, total_record_count, total_number_of_values_in_dataset,
+                                    total_number_of_null_values, percent_of_dataset_are_null_values, dataset_api_id,
+                                    dict_of_socrata_dataset_providers[dataset_name_with_spaces_but_no_illegal],
+                                    build_today_date_string()
+                                    ]
+            zipper_overview_level = make_zipper(dataset_headers_list=OVERVIEW_STATS_SOCRATA_HEADERS.value, record_list=overview_level_record_list)
+            upsert_to_socrata(client=socrata_client_overview_level, dataset_identifier=socrata_overview_level_dataset_app_id, zipper=zipper_overview_level)
+            print("\tUPSERTED: {}".format(dataset_name))
+
+            # Optional output to CSV's, per original functionality
+            # Append dataset results to the field level stats file
+            # write_dataset_results_to_csv(root_file_destination_location=ROOT_PATH_FOR_CSV_OUTPUT.value,
+            #                              filename=field_level_csv_filename,
+            #                              dataset_name=dataset_name_with_spaces_but_no_illegal,
+            #                              hyperlink=url_socrata_data_page,
+            #                              api_id=dataset_api_id,
+            #                              dataset_inspection_results=null_count_for_each_field_dict,
+            #                              total_number_of_dataset_records=total_record_count,
+            #                              date_analyzed=build_today_date_string()
+            #                              )
             # Append the overview stats for each dataset to the overview stats csv
-            write_overview_stats_to_csv(root_file_destination_location=ROOT_PATH_FOR_CSV_OUTPUT.value,
-                                        filename=overview_csv_filename,
-                                        api_id=dataset_api_id,
-                                        dataset_name=dataset_name_with_spaces_but_no_illegal,
-                                        hyperlink=url_socrata_data_page,
-                                        total_number_of_dataset_columns=number_of_columns_in_dataset,
-                                        total_number_of_dataset_records=total_record_count,
-                                        total_number_of_values=total_number_of_values_in_dataset,
-                                        data_provider=dict_of_socrata_dataset_providers[dataset_name_with_spaces_but_no_illegal],
-                                        total_number_of_null_fields=total_number_of_null_values,
-                                        percent_null=percent_of_dataset_are_null_values,
-                                        date_analyzed=build_today_date_string()
-                                        )
+            # write_overview_stats_to_csv(root_file_destination_location=ROOT_PATH_FOR_CSV_OUTPUT.value,
+            #                             filename=overview_csv_filename,
+            #                             api_id=dataset_api_id,
+            #                             dataset_name=dataset_name_with_spaces_but_no_illegal,
+            #                             hyperlink=url_socrata_data_page,
+            #                             total_number_of_dataset_columns=number_of_columns_in_dataset,
+            #                             total_number_of_dataset_records=total_record_count,
+            #                             total_number_of_values=total_number_of_values_in_dataset,
+            #                             data_provider=dict_of_socrata_dataset_providers[dataset_name_with_spaces_but_no_illegal],
+            #                             total_number_of_null_fields=total_number_of_null_values,
+            #                             percent_null=percent_of_dataset_are_null_values,
+            #                             date_analyzed=build_today_date_string()
+            #                             )
+
+    socrata_client_overview_level.close()
+    socrata_client_field_level.close()
 
     performance_summary_filename = build_csv_file_name_with_date(today_date_string=build_today_date_string(),
                                                                  filename=PERFORMANCE_SUMMARY_FILE_NAME.value)
