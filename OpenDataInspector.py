@@ -582,7 +582,6 @@ def main():
             else:
                 pass
 
-
             # Only need to get the field headers the first time through
             if dataset_fields_string == None and "x-soda2-fields" in socrata_response_info_key_list:
                 dataset_fields_string = socrata_url_response.headers["X-SODA2-Fields"]

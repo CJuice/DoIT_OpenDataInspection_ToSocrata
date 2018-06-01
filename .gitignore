@@ -1,7 +1,12 @@
 .idea/*
+
 *.idea
-OUTPUT_CSVs
-RealPropertyHiddenOwner_JSON.json
-MarylandCorrectionalEnterprises_JSON.json
+
 *.pyc
+
+OUTPUT_CSVs
+
+RealPropertyHiddenOwner_JSON.json
+
+MarylandCorrectionalEnterprises_JSON.json
 EssentialExtraFilesForOpenDataInspectorSuccess
