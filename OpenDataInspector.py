@@ -40,8 +40,8 @@ FIELD_LEVEL_STATS_FILE_NAME = Variable("_FIELD_LEVEL_STATS")
 FIELD_LEVEL_STATS_SOCRATA_HEADERS = Variable(['DATASET NAME', 'FIELD NAME', 'TOTAL NULL VALUE COUNT', 'TOTAL RECORD COUNT', 'PERCENT NULL', 'HYPERLINK', 'DATASET ID', 'FIELD ID', 'DATE', 'ROW ID'])
 LIMIT_MAX_AND_OFFSET = Variable(10000)
 MD_STATEWIDE_VEHICLE_CRASH_STARTSWITH = Variable("Maryland Statewide Vehicle Crashes")
-OVERVIEW_STATS_FILE_NAME = Variable("_OVERVIEW_STATS")
-OVERVIEW_STATS_SOCRATA_HEADERS = Variable(['DATASET NAME', 'HYPERLINK', 'TOTAL COLUMN COUNT', 'TOTAL RECORD COUNT', 'TOTAL VALUE COUNT', 'TOTAL NULL VALUE COUNT', 'PERCENT NULL', 'DATASET ID', 'DATA PROVIDER', 'DATE', 'ROW ID'])
+OVERVIEW_LEVEL_STATS_FILE_NAME = Variable("_OVERVIEW_STATS")
+OVERVIEW_LEVEL_STATS_SOCRATA_HEADERS = Variable(['DATASET NAME', 'HYPERLINK', 'TOTAL COLUMN COUNT', 'TOTAL RECORD COUNT', 'TOTAL VALUE COUNT', 'TOTAL NULL VALUE COUNT', 'PERCENT NULL', 'DATASET ID', 'DATA PROVIDER', 'DATE', 'ROW ID'])
 PERFORMANCE_SUMMARY_FILE_NAME = Variable("__script_performance_summary")
 PROBLEM_DATASETS_FILE_NAME = Variable("_PROBLEM_DATASETS")
 REAL_PROPERTY_HIDDEN_NAMES_API_ID = Variable("ed4q-f8tm")
@@ -56,9 +56,7 @@ assert os.path.exists(REAL_PROPERTY_HIDDEN_NAMES_JSON_FILE.value)
 assert os.path.exists(ROOT_PATH_FOR_CSV_OUTPUT.value)
 assert os.path.exists(SOCRATA_CREDENTIALS_JSON_FILE.value)
 
-
 # FUNCTIONS (alphabetic)
-
 def build_csv_file_name_with_date(today_date_string, filename):
     """
     Build a string, ending in .csv, that contains todays date and the provided file name
@@ -304,31 +302,23 @@ def upsert_to_socrata(client, dataset_identifier, zipper):
     client.upsert(dataset_identifier=dataset_identifier, payload=zipper, content_type='json')
     return
 
-def write_dataset_results_to_csv(root_file_destination_location, filename, dataset_name=None, hyperlink=None, api_id=None,
-                                 dataset_inspection_results=None, total_number_of_dataset_records=None, date_analyzed=None):
+def write_dataset_results_to_csv(root_file_destination_location, filename, header_list=None, records_list_list=None):
     """
     Write a csv file containing the analysis results specific to a single dataset
 
     :param root_file_destination_location: Path to the location of the file directory where the file will be created
     :param filename: Name of the file for field level results of datasets
-    :param dataset_name: Name of the dataset of interest
-    :param hyperlink: url to Socrata data
-    :param api_id: Socrata api ID
-    :param dataset_inspection_results: Results of the data set inspection for null values
-    :param total_number_of_dataset_records: Total number of records in the dataset
-    :param date_analyzed: Date stamp to enable time comparisons between runs of data
+    :param header_list: List of headers for the data
+    :param records_list_list: List of lists of values to be written to csv as records
     :return: None
     """
     file_path = os.path.join(root_file_destination_location, filename)
     try:
-        if os.path.exists(file_path):
+        if os.path.exists(file_path) and records_list_list is not None:
             with open(file_path, 'a') as file_handler:
-                for field_name_key, null_count_value in dataset_inspection_results.items():
-                    unique_field_id = "{}.{}".format(api_id,field_name_key)
-                    percent = 0.0
-                    if total_number_of_dataset_records > 0:
-                        percent = (null_count_value / float(total_number_of_dataset_records)) * 100.0
-                    file_handler.write("{},{},{},{},{:6.2f},{},{},{},{}\n".format(dataset_name,
+                for record_list in records_list_list:
+                    dataset_name,field_name_key,null_count_value,total_number_of_dataset_records,percent,hyperlink,api_id,unique_field_id,date_analyzed,row_id = record_list
+                    file_handler.write("{},{},{},{},{:6.2f},{},{},{},{},{}\n".format(dataset_name,
                                                                                   field_name_key,
                                                                                   null_count_value,
                                                                                   total_number_of_dataset_records,
@@ -336,42 +326,33 @@ def write_dataset_results_to_csv(root_file_destination_location, filename, datas
                                                                                   hyperlink,
                                                                                   api_id,
                                                                                   unique_field_id,
-                                                                                  date_analyzed))
+                                                                                  date_analyzed,
+                                                                                  row_id))
         else:
             with open(file_path, 'w') as file_handler:
-                file_handler.write("DATASET NAME,FIELD NAME,TOTAL NULL VALUE COUNT,TOTAL RECORD COUNT,PERCENT NULL,HYPERLINK,DATASET ID,FIELD ID,DATE\n")
+                file_handler.write("{}\n".format(",".join(header_list)))
     except IOError as io_err:
         print(io_err)
         exit()
     return
 
-def write_overview_stats_to_csv(root_file_destination_location, filename, api_id=None, dataset_name=None, hyperlink=None,
-                                total_number_of_dataset_columns=None, total_number_of_dataset_records=None, data_provider=None,
-                                date_analyzed=None, total_number_of_values=0, total_number_of_null_fields=0,
-                                percent_null=0.0):
+def write_overview_stats_to_csv(root_file_destination_location, filename, header_list=None, record_list=None):
     """
     Write analysis results for entire process, as an overview of all datasets, to .csv
 
     :param root_file_destination_location: Path to the location where the file directory where the file will be created
     :param filename: Name of the overview analysis file
-    :param api_id: Socrata api ID
-    :param dataset_name: Name of the dataset of interest
-    :param hyperlink: url to Socrata dataset
-    :param total_number_of_dataset_columns: Total number of columns in dataset of interest
-    :param total_number_of_dataset_records: Total number of records in dataset of interest
-    :param data_provider: Data provider for dataset of interest
-    :param total_number_of_values: Number of columns times number of rows
-    :param total_number_of_null_fields: Total number of null fields for dataset of interest
-    :param percent_null: The percent null for the dataset of interest
-    :param date_analyzed: Date stamp to enable time comparisons between runs of data
+    :param header_list: List of headers for the data
+    :param record_list: List of values to be written to csv as a record
     :return: None
     """
 
     file_path = os.path.join(root_file_destination_location, filename)
     try:
-        if os.path.exists(file_path):
+        if os.path.exists(file_path) and record_list is not None:
+            dataset_name, hyperlink, total_number_of_dataset_columns, total_number_of_dataset_records, total_number_of_values, total_number_of_null_fields, percent_null, api_id, data_provider, date_analyzed, row_id = record_list
             with open(file_path, 'a') as file_handler:
-                file_handler.write("{},{},{},{},{},{},{:6.2f},{},{},{}\n".format(dataset_name,
+                file_handler.write("{},{},{},{},{},{},{:6.2f},{},{},{},{}\n".format(dataset_name,
                                                                                  hyperlink,
                                                                                  total_number_of_dataset_columns,
                                                                                  total_number_of_dataset_records,
@@ -380,12 +361,12 @@ def write_overview_stats_to_csv(root_file_destination_location, filename, api_id
                                                                                  percent_null,
                                                                                  api_id,
                                                                                  data_provider,
-                                                                                 date_analyzed
-                                                                                 )
+                                                                                 date_analyzed,
+                                                                                 row_id)
                                    )
         else:
             with open(file_path, "w") as file_handler:
-                file_handler.write("DATASET NAME,HYPERLINK,TOTAL COLUMN COUNT,TOTAL RECORD COUNT,TOTAL VALUE COUNT,TOTAL NULL VALUE COUNT,PERCENT NULL,DATASET ID,DATA PROVIDER,DATE\n")
+                file_handler.write("{}\n".format(",".join(header_list)))
     except IOError as io_err:
         print(io_err)
         exit()
@@ -449,8 +430,9 @@ def write_script_performance_summary(root_file_destination_location, filename, s
 
 # FUNCTIONALITY
 def main():
-    turn_on_write_output_to_csv = False             # OPTION
-
+    turn_on_write_output_to_csv = True             # OPTION
+    if turn_on_write_output_to_csv:
+        print("Upserting to Socrata AND writing to csv (turn_on_write_output-to_csv = True)")
     # Initiate csv report files
     problem_datasets_csv_filename = build_csv_file_name_with_date(today_date_string=build_today_date_string(),
                                                                   filename=PROBLEM_DATASETS_FILE_NAME.value)
@@ -462,11 +444,13 @@ def main():
         field_level_csv_filename = build_csv_file_name_with_date(today_date_string=build_today_date_string(),
                                                                  filename=FIELD_LEVEL_STATS_FILE_NAME.value)
         write_dataset_results_to_csv(root_file_destination_location=ROOT_PATH_FOR_CSV_OUTPUT.value,
-                                     filename=field_level_csv_filename)
+                                     filename=field_level_csv_filename,
+                                     header_list=FIELD_LEVEL_STATS_SOCRATA_HEADERS.value)
         overview_csv_filename = build_csv_file_name_with_date(today_date_string=build_today_date_string(),
-                                                              filename=OVERVIEW_STATS_FILE_NAME.value)
+                                                              filename=OVERVIEW_LEVEL_STATS_FILE_NAME.value)
         write_overview_stats_to_csv(root_file_destination_location=ROOT_PATH_FOR_CSV_OUTPUT.value,
-                                    filename=overview_csv_filename)
+                                    filename=overview_csv_filename,
+                                    header_list=OVERVIEW_LEVEL_STATS_SOCRATA_HEADERS.value)
 
     # Need an inventory of all Maryland Socrata datasets; will gather from the data freshness report.
     data_freshness_url = build_dataset_url(url_root=ROOT_URL_FOR_DATASET_ACCESS.value,
@@ -656,9 +640,8 @@ def main():
         total_number_of_values_in_dataset = calculate_total_number_of_values_in_dataset(
             total_records_processed=total_record_count,
             number_of_fields_in_dataset=number_of_columns_in_dataset)
-        percent_of_dataset_are_null_values = calculate_percent_null(
-            null_count_total=total_number_of_null_values,
-            total_data_values=total_number_of_values_in_dataset)
+        percent_of_dataset_are_null_values = calculate_percent_null(null_count_total=total_number_of_null_values,
+                                                                    total_data_values=total_number_of_values_in_dataset)
 
         if is_problematic:
             problem_dataset_counter += 1
@@ -675,6 +658,7 @@ def main():
                 valid_no_null_dataset_counter += 1
 
             # Field Level
+            field_records_list_list = []
             for field_name_key, null_count_value in null_count_for_each_field_dict.items():
                 unique_field_id = "{}.{}".format(dataset_api_id, field_name_key)
                 unique_row_id_field_level = "{}.{}".format(unique_field_id, build_today_date_string())
@@ -683,6 +667,7 @@ def main():
                 field_level_record_list = [dataset_name_with_spaces_but_no_illegal, field_name_key, null_count_value,
                                            total_record_count, percent_nulls_in_field, url_socrata_data_page, dataset_api_id,
                                            unique_field_id, build_today_date_string(), unique_row_id_field_level]
+                field_records_list_list.append(field_level_record_list)
                 zipper_field_level = make_zipper(dataset_headers_list=FIELD_LEVEL_STATS_SOCRATA_HEADERS.value,
                                                  record_list=field_level_record_list)
                 upsert_to_socrata(client=socrata_client_field_level,
@@ -697,7 +682,7 @@ def main():
                                     dict_of_socrata_dataset_providers[dataset_name_with_spaces_but_no_illegal],
                                     build_today_date_string(), unique_row_id_overview_level
                                     ]
-            zipper_overview_level = make_zipper(dataset_headers_list=OVERVIEW_STATS_SOCRATA_HEADERS.value,
+            zipper_overview_level = make_zipper(dataset_headers_list=OVERVIEW_LEVEL_STATS_SOCRATA_HEADERS.value,
                                                 record_list=overview_level_record_list)
             upsert_to_socrata(client=socrata_client_overview_level,
                               dataset_identifier=socrata_overview_level_dataset_app_id,
@@ -707,29 +692,18 @@ def main():
             if turn_on_write_output_to_csv:
                 # Optional output to CSV's, per original functionality. Write output here.
                 # Append dataset results to the field level stats file
+
                 write_dataset_results_to_csv(root_file_destination_location=ROOT_PATH_FOR_CSV_OUTPUT.value,
                                              filename=field_level_csv_filename,
-                                             dataset_name=dataset_name_with_spaces_but_no_illegal,
-                                             hyperlink=url_socrata_data_page,
-                                             api_id=dataset_api_id,
-                                             dataset_inspection_results=null_count_for_each_field_dict,
-                                             total_number_of_dataset_records=total_record_count,
-                                             date_analyzed=build_today_date_string()
-                                             )
+                                             header_list=None,
+                                             records_list_list=field_records_list_list)
+
                 # Append the overview stats for each dataset to the overview stats csv
                 write_overview_stats_to_csv(root_file_destination_location=ROOT_PATH_FOR_CSV_OUTPUT.value,
                                             filename=overview_csv_filename,
-                                            api_id=dataset_api_id,
-                                            dataset_name=dataset_name_with_spaces_but_no_illegal,
-                                            hyperlink=url_socrata_data_page,
-                                            total_number_of_dataset_columns=number_of_columns_in_dataset,
-                                            total_number_of_dataset_records=total_record_count,
-                                            total_number_of_values=total_number_of_values_in_dataset,
-                                            data_provider=dict_of_socrata_dataset_providers[dataset_name_with_spaces_but_no_illegal],
-                                            total_number_of_null_fields=total_number_of_null_values,
-                                            percent_null=percent_of_dataset_are_null_values,
-                                            date_analyzed=build_today_date_string()
-                                            )
+                                            header_list=None,
+                                            record_list=overview_level_record_list)
+                print("\tWRITTEN TO CSV: {}".format(dataset_name))
 
     socrata_client_overview_level.close()
     socrata_client_field_level.close()
