@@ -33,23 +33,23 @@ process_start_time = time.time()
 
 # VARIABLES (alphabetic)
 Variable = namedtuple("Variable", ["value"])
-CORRECTIONAL_ENTERPRISES_EMPLOYEES_API_ID = Variable("mux9-y6mb")
-CORRECTIONAL_ENTERPRISES_EMPLOYEES_JSON_FILE = Variable("EssentialExtraFilesForOpenDataInspectorSuccess\MarylandCorrectionalEnterprises_JSON.json")
-DATA_FRESHNESS_REPORT_API_ID = Variable("t8k3-edvn")
-FIELD_LEVEL_STATS_FILE_NAME = Variable("_FIELD_LEVEL_STATS")
-FIELD_LEVEL_STATS_SOCRATA_HEADERS = Variable(['DATASET NAME', 'FIELD NAME', 'TOTAL NULL VALUE COUNT', 'TOTAL RECORD COUNT', 'PERCENT NULL', 'HYPERLINK', 'DATASET ID', 'FIELD ID', 'DATE', 'ROW ID'])
-LIMIT_MAX_AND_OFFSET = Variable(10000)
-MD_STATEWIDE_VEHICLE_CRASH_STARTSWITH = Variable("Maryland Statewide Vehicle Crashes")
-OVERVIEW_LEVEL_STATS_FILE_NAME = Variable("_OVERVIEW_STATS")
-OVERVIEW_LEVEL_STATS_SOCRATA_HEADERS = Variable(['DATASET NAME', 'HYPERLINK', 'TOTAL COLUMN COUNT', 'TOTAL RECORD COUNT', 'TOTAL VALUE COUNT', 'TOTAL NULL VALUE COUNT', 'PERCENT NULL', 'DATASET ID', 'DATA PROVIDER', 'DATE', 'ROW ID'])
-PERFORMANCE_SUMMARY_FILE_NAME = Variable("__script_performance_summary")
-PROBLEM_DATASETS_FILE_NAME = Variable("_PROBLEM_DATASETS")
-REAL_PROPERTY_HIDDEN_NAMES_API_ID = Variable("ed4q-f8tm")
-REAL_PROPERTY_HIDDEN_NAMES_JSON_FILE = Variable("EssentialExtraFilesForOpenDataInspectorSuccess\RealPropertyHiddenOwner_JSON.json")
-ROOT_PATH_FOR_CSV_OUTPUT = Variable(r"E:\DoIT_OpenDataInspection_ToSocrata\OUTPUT_CSVs")
-ROOT_URL_FOR_DATASET_ACCESS = Variable(r"https://data.maryland.gov/resource/")
-SOCRATA_CREDENTIALS_JSON_FILE = Variable("EssentialExtraFilesForOpenDataInspectorSuccess\Credentials_OpenDataInspector_ToSocrata.json")
-THREAD_COUNT = Variable(8)
+CORRECTIONAL_ENTERPRISES_EMPLOYEES_API_ID = Variable(value="mux9-y6mb")
+CORRECTIONAL_ENTERPRISES_EMPLOYEES_JSON_FILE = Variable(value="EssentialExtraFilesForOpenDataInspectorSuccess\MarylandCorrectionalEnterprises_JSON.json")
+DATA_FRESHNESS_REPORT_API_ID = Variable(value="t8k3-edvn")
+FIELD_LEVEL_STATS_FILE_NAME = Variable(value="_FIELD_LEVEL_STATS")
+FIELD_LEVEL_STATS_SOCRATA_HEADERS = Variable(value=['DATASET NAME', 'FIELD NAME', 'TOTAL NULL VALUE COUNT', 'TOTAL RECORD COUNT', 'PERCENT NULL', 'HYPERLINK', 'DATASET ID', 'FIELD ID', 'DATE', 'ROW ID'])
+LIMIT_MAX_AND_OFFSET = Variable(value=10000)
+MD_STATEWIDE_VEHICLE_CRASH_STARTSWITH = Variable(value="Maryland Statewide Vehicle Crashes")
+OVERVIEW_LEVEL_STATS_FILE_NAME = Variable(value="_OVERVIEW_STATS")
+OVERVIEW_LEVEL_STATS_SOCRATA_HEADERS = Variable(value=['DATASET NAME', 'HYPERLINK', 'TOTAL COLUMN COUNT', 'TOTAL RECORD COUNT', 'TOTAL VALUE COUNT', 'TOTAL NULL VALUE COUNT', 'PERCENT NULL', 'DATASET ID', 'DATA PROVIDER', 'DATE', 'ROW ID'])
+PERFORMANCE_SUMMARY_FILE_NAME = Variable(value="__script_performance_summary")
+PROBLEM_DATASETS_FILE_NAME = Variable(value="_PROBLEM_DATASETS")
+REAL_PROPERTY_HIDDEN_NAMES_API_ID = Variable(value="ed4q-f8tm")
+REAL_PROPERTY_HIDDEN_NAMES_JSON_FILE = Variable(value="EssentialExtraFilesForOpenDataInspectorSuccess\RealPropertyHiddenOwner_JSON.json")
+ROOT_PATH_FOR_CSV_OUTPUT = Variable(value=r"E:\DoIT_OpenDataInspection_ToSocrata\OUTPUT_CSVs")
+ROOT_URL_FOR_DATASET_ACCESS = Variable(value=r"https://data.maryland.gov/resource/")
+SOCRATA_CREDENTIALS_JSON_FILE = Variable(value="EssentialExtraFilesForOpenDataInspectorSuccess\Credentials_OpenDataInspector_ToSocrata.json")
+THREAD_COUNT = Variable(value=8)
 
 assert os.path.exists(CORRECTIONAL_ENTERPRISES_EMPLOYEES_JSON_FILE.value)
 assert os.path.exists(REAL_PROPERTY_HIDDEN_NAMES_JSON_FILE.value)
@@ -192,6 +192,18 @@ def generate_freshness_report_json_objects(dataset_url):
     else:
         json_objects = response.json()
     return json_objects
+
+def generate_id_from_args(*args, separator="."):
+    """
+    Create a string from args, separated by separator value.
+
+    :param args: Any number of arguements to be used
+    :param separator: Character to separate the args
+    :return: String value of args separated by separator
+    """
+    sep = str(separator)
+    arg_stringified_list = [str(arg) for arg in args]
+    return sep.join(arg_stringified_list)
 
 def get_dataset_identifier(credentials_json, dataset_key):
     """
@@ -430,7 +442,8 @@ def write_script_performance_summary(root_file_destination_location, filename, s
 
 # FUNCTIONALITY
 def main():
-    turn_on_write_output_to_csv = True             # OPTION
+    turn_on_write_output_to_csv = True              # OPTION
+    turn_on_upsert_output_to_Socrata = True        # OPTION
     if turn_on_write_output_to_csv:
         print("Upserting to Socrata AND writing to csv (turn_on_write_output-to_csv = True)")
     # Initiate csv report files
@@ -660,8 +673,8 @@ def main():
             # Field Level
             field_records_list_list = []
             for field_name_key, null_count_value in null_count_for_each_field_dict.items():
-                unique_field_id = "{}.{}".format(dataset_api_id, field_name_key)
-                unique_row_id_field_level = "{}.{}".format(unique_field_id, build_today_date_string())
+                unique_field_id = generate_id_from_args(dataset_api_id, field_name_key)
+                unique_row_id_field_level = generate_id_from_args(unique_field_id, build_today_date_string())
                 percent_nulls_in_field = calculate_percent_null(null_count_total=null_count_value,
                                                                 total_data_values=total_record_count)
                 field_level_record_list = [dataset_name_with_spaces_but_no_illegal, field_name_key, null_count_value,
@@ -670,12 +683,12 @@ def main():
                 field_records_list_list.append(field_level_record_list)
                 zipper_field_level = make_zipper(dataset_headers_list=FIELD_LEVEL_STATS_SOCRATA_HEADERS.value,
                                                  record_list=field_level_record_list)
-                upsert_to_socrata(client=socrata_client_field_level,
-                                  dataset_identifier=socrata_field_level_dataset_app_id,
-                                  zipper=zipper_field_level)
+                if turn_on_upsert_output_to_Socrata:
+                    upsert_to_socrata(client=socrata_client_field_level,
+                                      dataset_identifier=socrata_field_level_dataset_app_id, zipper=zipper_field_level)
 
             # Overview Level
-            unique_row_id_overview_level = "{}.{}".format(dataset_api_id, build_today_date_string())
+            unique_row_id_overview_level = generate_id_from_args(dataset_api_id, build_today_date_string())
             overview_level_record_list = [dataset_name_with_spaces_but_no_illegal, url_socrata_data_page,
                                     number_of_columns_in_dataset, total_record_count, total_number_of_values_in_dataset,
                                     total_number_of_null_values, percent_of_dataset_are_null_values, dataset_api_id,
@@ -684,10 +697,10 @@ def main():
                                     ]
             zipper_overview_level = make_zipper(dataset_headers_list=OVERVIEW_LEVEL_STATS_SOCRATA_HEADERS.value,
                                                 record_list=overview_level_record_list)
-            upsert_to_socrata(client=socrata_client_overview_level,
-                              dataset_identifier=socrata_overview_level_dataset_app_id,
-                              zipper=zipper_overview_level)
-            print("\tUPSERTED: {}".format(dataset_name))
+            if turn_on_upsert_output_to_Socrata:
+                upsert_to_socrata(client=socrata_client_overview_level,
+                                  dataset_identifier=socrata_overview_level_dataset_app_id, zipper=zipper_overview_level)
+                print("\tUPSERTED: {}".format(dataset_name))
 
             if turn_on_write_output_to_csv:
                 # Optional output to CSV's, per original functionality. Write output here.
@@ -721,6 +734,7 @@ def main():
                                      )
 
     print("Process time (minutes) = {:4.2f}\n".format((time.time() - process_start_time)/60.0))
+    return
 
 if __name__ == "__main__":
     main()
