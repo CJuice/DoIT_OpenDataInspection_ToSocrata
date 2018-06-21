@@ -131,9 +131,9 @@ def calculate_time_taken(start_time):
     """
     return (time.time() - start_time)
 
-def calculate_total_number_of_empty_values_per_dataset(null_counts_list):
+def calculate_total_number_of_null_values_per_dataset(null_counts_list):
     """
-    Calculate the total number of null values in a dataset
+    Calculate the total number of null/empty values in a dataset
 
     :param null_counts_list: List of numeric values representing null counts per column in dataset
     :return: Integer value representing total
@@ -648,7 +648,7 @@ def main():
                 more_records_exist_than_response_limit_allows = False
 
         # Calculate statistics for outputs
-        total_number_of_null_values = calculate_total_number_of_empty_values_per_dataset(
+        total_number_of_null_values = calculate_total_number_of_null_values_per_dataset(
             null_counts_list=null_count_for_each_field_dict.values())
         total_number_of_values_in_dataset = calculate_total_number_of_values_in_dataset(
             total_records_processed=total_record_count,
