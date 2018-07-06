@@ -51,6 +51,8 @@ ROOT_PATH_FOR_CSV_OUTPUT = Variable(value=r"E:\DoIT_OpenDataInspection_ToSocrata
 ROOT_URL_FOR_DATASET_ACCESS = Variable(value=r"https://data.maryland.gov/resource/")
 SOCRATA_CREDENTIALS_JSON_FILE = Variable(value="EssentialExtraFilesForOpenDataInspectorSuccess\Credentials_OpenDataInspector_ToSocrata.json")
 THREAD_COUNT = Variable(value=8)
+TURN_ON_WRITE_OUTPUT_TO_CSV = Variable(value=True)          # OPTION
+TURN_ON_UPSERT_OUTPUT_TO_SOCRATA = Variable(value=True)     # OPTION
 
 assert os.path.exists(CORRECTIONAL_ENTERPRISES_EMPLOYEES_JSON_FILE.value)
 assert os.path.exists(REAL_PROPERTY_HIDDEN_NAMES_JSON_FILE.value)
@@ -443,12 +445,10 @@ def write_script_performance_summary(root_file_destination_location, filename, s
 
 # FUNCTIONALITY
 def main():
-    turn_on_write_output_to_csv = True              # OPTION
-    turn_on_upsert_output_to_Socrata = True        # OPTION
-    if turn_on_write_output_to_csv:
-        print("Writing to csv (turn_on_write_output_to_csv = True)")
-    if turn_on_upsert_output_to_Socrata:
-        print("Upserting to Socrata (turn_on_upsert_output_to_Socrata = True)")
+    if TURN_ON_WRITE_OUTPUT_TO_CSV.value:
+        print("Writing to csv (TURN_ON_WRITE_OUTPUT_TO_CSV.value = True)")
+    if TURN_ON_UPSERT_OUTPUT_TO_SOCRATA.value:
+        print("Upserting to Socrata (TURN_ON_UPSERT_OUTPUT_TO_SOCRATA.value = True)")
 
     # Initiate csv report files
     problem_datasets_csv_filename = build_csv_file_name_with_date(today_date_string=build_today_date_string(),
@@ -456,7 +456,7 @@ def main():
     write_problematic_datasets_to_csv(root_file_destination_location=ROOT_PATH_FOR_CSV_OUTPUT.value,
                                       filename=problem_datasets_csv_filename)
 
-    if turn_on_write_output_to_csv:
+    if TURN_ON_WRITE_OUTPUT_TO_CSV.value:
         # Optional output to CSV's, per original functionality. Initiate files here.
         field_level_csv_filename = build_csv_file_name_with_date(today_date_string=build_today_date_string(),
                                                                  filename=FIELD_LEVEL_STATS_FILE_NAME.value)
@@ -699,7 +699,7 @@ def main():
                 field_records_list_list.append(field_level_record_list)
                 zipper_field_level = make_zipper(dataset_headers_list=FIELD_LEVEL_STATS_SOCRATA_HEADERS.value,
                                                  record_list=field_level_record_list)
-                if turn_on_upsert_output_to_Socrata:
+                if TURN_ON_UPSERT_OUTPUT_TO_SOCRATA.value:
                     upsert_to_socrata(client=socrata_client_field_level,
                                       dataset_identifier=socrata_field_level_dataset_app_id, zipper=zipper_field_level)
 
@@ -713,12 +713,12 @@ def main():
                                     ]
             zipper_overview_level = make_zipper(dataset_headers_list=OVERVIEW_LEVEL_STATS_SOCRATA_HEADERS.value,
                                                 record_list=overview_level_record_list)
-            if turn_on_upsert_output_to_Socrata:
+            if TURN_ON_UPSERT_OUTPUT_TO_SOCRATA.value:
                 upsert_to_socrata(client=socrata_client_overview_level,
                                   dataset_identifier=socrata_overview_level_dataset_app_id, zipper=zipper_overview_level)
                 print("\tUPSERTED: {}".format(dataset_name))
 
-            if turn_on_write_output_to_csv:
+            if TURN_ON_WRITE_OUTPUT_TO_CSV.value:
                 # Optional output to CSV's, per original functionality. Write output here.
                 # Append dataset results to the field level stats file
 
