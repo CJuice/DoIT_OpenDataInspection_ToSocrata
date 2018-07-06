@@ -26,6 +26,7 @@ import re
 import time
 import requests
 from functools import partial
+# Note: below import is same as 'from multiprocessing.dummy import Pool as ThreadPool'
 from multiprocessing.pool import ThreadPool
 from sodapy import Socrata
 
@@ -445,7 +446,10 @@ def main():
     turn_on_write_output_to_csv = True              # OPTION
     turn_on_upsert_output_to_Socrata = True        # OPTION
     if turn_on_write_output_to_csv:
-        print("Upserting to Socrata AND writing to csv (turn_on_write_output-to_csv = True)")
+        print("Writing to csv (turn_on_write_output_to_csv = True)")
+    if turn_on_upsert_output_to_Socrata:
+        print("Upserting to Socrata (turn_on_upsert_output_to_Socrata = True)")
+
     # Initiate csv report files
     problem_datasets_csv_filename = build_csv_file_name_with_date(today_date_string=build_today_date_string(),
                                                                   filename=PROBLEM_DATASETS_FILE_NAME.value)
@@ -507,9 +511,8 @@ def main():
 
     # Need to inventory field names of every dataset and tally null/empty values
     for dataset_name, dataset_api_id in dict_of_socrata_dataset_IDs.items():
-        dataset_name_with_spaces_but_no_illegal = handle_illegal_characters_in_string(
-            string_with_illegals=dataset_name,
-            spaces_allowed=True)
+        dataset_name_with_spaces_but_no_illegal = handle_illegal_characters_in_string(string_with_illegals=dataset_name,
+                                                                                      spaces_allowed=True)
         url_socrata_data_page = build_dataset_url(url_root=ROOT_URL_FOR_DATASET_ACCESS.value,
                                                   api_id=dataset_api_id)
 #_______________________________________________________________________________________________________________________
@@ -629,12 +632,25 @@ def main():
                 is_problematic = True
                 break
 
-            # Mulithreading implementation to accelerate data processing
-            partial_function_for_multithreading = partial(inspect_record_for_null_values, null_count_for_each_field_dict)
-            pool = ThreadPool(THREAD_COUNT.value)
-            pool.map(partial_function_for_multithreading, response_list_of_dicts)
-            pool.close()
-            pool.join()
+            # After Socrata coaching call, where we were troubleshooting the variance in nulls between runs for static
+            # datasets and where it was suggested that passing mutable dictionary to threading could lead to issues,
+            # I cut out the threading and am using a straight for loop. It may not be as fast but there is no chance
+            # of the mutable dictionary being operated on concurrently. Saw no change in output after running this style.
+            for record in response_list_of_dicts:
+                inspect_record_for_null_values(field_null_count_dict=null_count_for_each_field_dict, record_dictionary=record)
+
+            # BELOW WAS PREVIOUS IMPLEMENTATION
+            # Multithreading implementation to accelerate data processing
+            # http://chriskiehl.com/article/parallelism-in-one-line/
+            # partial_function_for_multithreading = partial(inspect_record_for_null_values, null_count_for_each_field_dict)
+            # pool = ThreadPool(THREAD_COUNT.value)
+            # pool.map(partial_function_for_multithreading, response_list_of_dicts)
+            # pool.close()
+            # pool.join()
+            # Note, alternate implementation of the above using a context manager
+            # with ThreadPool(THREAD_COUNT.value) as pool:
+            #   pool.map(partial_function_for_multithreading, response_list_of_dicts)
+
             record_count_increase = len(response_list_of_dicts)
             cycle_record_count += record_count_increase
             total_record_count += record_count_increase
