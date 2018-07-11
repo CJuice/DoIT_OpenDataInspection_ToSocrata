@@ -11,11 +11,6 @@ Upsert output statistics to Socrata dataset providing an overview at the dataset
 Author: CJuice
 Date: 20180601
 Revisions:
-
-Note on multiprocessing. Threading has been implemented but multiprocessing may improve performace further. No null
- records are "seen" and no csv files for datasets are written when multiprocessor approach is used. I think
- multiprocessing makes copies of this script for use in each processor so they are not sharing the same variables. I
- think this may be the issue.
 """
 # IMPORTS
 from collections import namedtuple
