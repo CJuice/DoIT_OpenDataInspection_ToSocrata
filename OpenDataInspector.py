@@ -20,9 +20,9 @@ import os
 import re
 import time
 import requests
-from functools import partial
+# from functools import partial
 # Note: below import is same as 'from multiprocessing.dummy import Pool as ThreadPool'
-from multiprocessing.pool import ThreadPool
+# from multiprocessing.pool import ThreadPool
 from sodapy import Socrata
 
 process_start_time = time.time()
