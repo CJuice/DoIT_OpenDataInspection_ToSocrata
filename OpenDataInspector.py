@@ -27,10 +27,12 @@ from sodapy import Socrata
 
 process_start_time = time.time()
 
-# VARIABLES (alphabetic)
 Variable = namedtuple("Variable", ["value"])
+
+# VARIABLES (alphabetic)
+_ROOT_URL_FOR_PROJECT = Variable(value=r"E:\DoIT_OpenDataInspection_ToSocrata")
 CORRECTIONAL_ENTERPRISES_EMPLOYEES_API_ID = Variable(value="mux9-y6mb")
-CORRECTIONAL_ENTERPRISES_EMPLOYEES_JSON_FILE = Variable(value="EssentialExtraFilesForOpenDataInspectorSuccess\MarylandCorrectionalEnterprises_JSON.json")
+CORRECTIONAL_ENTERPRISES_EMPLOYEES_JSON_FILE = Variable(value=os.path.join(_ROOT_URL_FOR_PROJECT.value, r"EssentialExtraFilesForOpenDataInspectorSuccess\MarylandCorrectionalEnterprises_JSON.json"))
 DATA_FRESHNESS_REPORT_API_ID = Variable(value="t8k3-edvn")
 FIELD_LEVEL_STATS_FILE_NAME = Variable(value="_FIELD_LEVEL_STATS")
 FIELD_LEVEL_STATS_SOCRATA_HEADERS = Variable(value=['DATASET NAME', 'FIELD NAME', 'TOTAL NULL VALUE COUNT', 'TOTAL RECORD COUNT', 'PERCENT NULL', 'HYPERLINK', 'DATASET ID', 'FIELD ID', 'DATE', 'ROW ID'])
@@ -41,10 +43,10 @@ OVERVIEW_LEVEL_STATS_SOCRATA_HEADERS = Variable(value=['DATASET NAME', 'HYPERLIN
 PERFORMANCE_SUMMARY_FILE_NAME = Variable(value="__script_performance_summary")
 PROBLEM_DATASETS_FILE_NAME = Variable(value="_PROBLEM_DATASETS")
 REAL_PROPERTY_HIDDEN_NAMES_API_ID = Variable(value="ed4q-f8tm")
-REAL_PROPERTY_HIDDEN_NAMES_JSON_FILE = Variable(value="EssentialExtraFilesForOpenDataInspectorSuccess\RealPropertyHiddenOwner_JSON.json")
-ROOT_PATH_FOR_CSV_OUTPUT = Variable(value=r"E:\DoIT_OpenDataInspection_ToSocrata\OUTPUT_CSVs")
+REAL_PROPERTY_HIDDEN_NAMES_JSON_FILE = Variable(value=os.path.join(_ROOT_URL_FOR_PROJECT.value, r"EssentialExtraFilesForOpenDataInspectorSuccess\RealPropertyHiddenOwner_JSON.json"))
+ROOT_PATH_FOR_CSV_OUTPUT = Variable(value=os.path.join(_ROOT_URL_FOR_PROJECT.value, "OUTPUT_CSVs"))
 ROOT_URL_FOR_DATASET_ACCESS = Variable(value=r"https://data.maryland.gov/resource/")
-SOCRATA_CREDENTIALS_JSON_FILE = Variable(value="EssentialExtraFilesForOpenDataInspectorSuccess\Credentials_OpenDataInspector_ToSocrata.json")
+SOCRATA_CREDENTIALS_JSON_FILE = Variable(value=os.path.join(_ROOT_URL_FOR_PROJECT.value, r"EssentialExtraFilesForOpenDataInspectorSuccess\Credentials_OpenDataInspector_ToSocrata.json"))
 THREAD_COUNT = Variable(value=8)
 TURN_ON_WRITE_OUTPUT_TO_CSV = Variable(value=True)          # OPTION
 TURN_ON_UPSERT_OUTPUT_TO_SOCRATA = Variable(value=True)     # OPTION
