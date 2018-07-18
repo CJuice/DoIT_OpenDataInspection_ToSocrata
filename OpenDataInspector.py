@@ -31,7 +31,7 @@ def main():
     process_start_time = time.time()
 
     CONSTANT = namedtuple("CONSTANT", ["value"])
-    
+
     # VARIABLES (alphabetic)
     _ROOT_URL_FOR_PROJECT = CONSTANT(value=r"E:\DoIT_OpenDataInspection_ToSocrata")
     CORRECTIONAL_ENTERPRISES_EMPLOYEES_API_ID = CONSTANT(value="mux9-y6mb")
@@ -436,8 +436,7 @@ def main():
                 scriptperformancesummaryhandler.write("Valid datasets with nulls count (csv generated),{}\n".format(valid_nulls_dataset_counter))
                 scriptperformancesummaryhandler.write("Valid datasets without nulls count (no csv),{}\n".format(valid_no_null_dataset_counter))
                 scriptperformancesummaryhandler.write("Problematic datasets count,{}\n".format(problem_dataset_counter))
-                time_took = time.time() - start_time
-                scriptperformancesummaryhandler.write("Process time (minutes),{:6.2f}\n".format(time_took/60.0))
+                scriptperformancesummaryhandler.write("Process time (minutes),{:6.2f}\n".format(calculate_time_taken(start_time=start_time)/60.0))
         except IOError as io_err:
             print(io_err)
             exit()
@@ -748,7 +747,7 @@ def main():
                                      problem_dataset_counter=problem_dataset_counter
                                      )
 
-    print("Process time (minutes) = {:4.2f}\n".format((time.time() - process_start_time)/60.0))
+    print("Process time (minutes) = {:4.2f}\n".format(calculate_time_taken(process_start_time)/60.0))
     return
 
 if __name__ == "__main__":
