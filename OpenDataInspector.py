@@ -14,6 +14,7 @@ Revisions:
 """
 #TODO: requests module has built in json decoder. if r is the response then r.json() is the call. Evaluate use.
 #TODO: evaluate use of requests params keyword and pass limit and offset in a dictionary
+#TODO: add logging
 def main():
     # IMPORTS
     from collections import namedtuple
@@ -314,7 +315,10 @@ def main():
         :param zipper: dictionary of zipped results (headers and data values)
         :return: None
         """
-        client.upsert(dataset_identifier=dataset_identifier, payload=zipper, content_type='json')
+        try:
+            client.upsert(dataset_identifier=dataset_identifier, payload=zipper, content_type='json')
+        except Exception as e:
+            print("Error upserting to Socrata: {}. {}".format(dataset_identifier, e))
         return
 
     def write_dataset_results_to_csv(root_file_destination_location, filename, header_list=None, records_list_list=None):
