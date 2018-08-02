@@ -34,7 +34,7 @@ def main():
     CONSTANT = namedtuple("CONSTANT", ["value"])
 
     # VARIABLES (alphabetic)
-    _ROOT_URL_FOR_PROJECT = CONSTANT(value=r"E:\DoIT_OpenDataInspection_ToSocrata")
+    _ROOT_URL_FOR_PROJECT = CONSTANT(value=os.path.dirname(__file__))
     CORRECTIONAL_ENTERPRISES_EMPLOYEES_API_ID = CONSTANT(value="mux9-y6mb")
     CORRECTIONAL_ENTERPRISES_EMPLOYEES_JSON_FILE = CONSTANT(value=os.path.join(_ROOT_URL_FOR_PROJECT.value, r"EssentialExtraFilesForOpenDataInspectorSuccess\MarylandCorrectionalEnterprises_JSON.json"))
     DATA_FRESHNESS_REPORT_API_ID = CONSTANT(value="t8k3-edvn")
