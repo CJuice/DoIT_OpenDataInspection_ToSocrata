@@ -12,9 +12,12 @@ Author: CJuice
 Date: 20180601
 Revisions:
 """
-#TODO: requests module has built in json decoder. if r is the response then r.json() is the call. Evaluate use.
-#TODO: evaluate use of requests params keyword and pass limit and offset in a dictionary
-#TODO: add logging
+
+# TODO: requests module has built in json decoder. if r is the response then r.json() is the call. Evaluate use.
+# TODO: evaluate use of requests params keyword and pass limit and offset in a dictionary
+# TODO: add logging
+
+
 def main():
     # IMPORTS
     from collections import namedtuple
