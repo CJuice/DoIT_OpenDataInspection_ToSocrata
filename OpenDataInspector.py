@@ -10,7 +10,7 @@ Upsert output statistics to Socrata dataset providing an overview at the dataset
  reporting on the performance of the script. Optionally, also write dataset level and field level statistics to csv files.
 Author: CJuice
 Date: 20180601
-Revisions:
+Revisions: 20190311, CJuice, Revised root url for data.maryland.gov to opendata.maryland.gov due to domain change
 """
 
 # TODO: requests module has built in json decoder. if r is the response then r.json() is the call. Evaluate use.
@@ -52,7 +52,7 @@ def main():
     REAL_PROPERTY_HIDDEN_NAMES_API_ID = CONSTANT(value="ed4q-f8tm")
     REAL_PROPERTY_HIDDEN_NAMES_JSON_FILE = CONSTANT(value=os.path.join(_ROOT_URL_FOR_PROJECT.value, r"EssentialExtraFilesForOpenDataInspectorSuccess\RealPropertyHiddenOwner_JSON.json"))
     ROOT_PATH_FOR_CSV_OUTPUT = CONSTANT(value=os.path.join(_ROOT_URL_FOR_PROJECT.value, "OUTPUT_CSVs"))
-    ROOT_URL_FOR_DATASET_ACCESS = CONSTANT(value=r"https://data.maryland.gov/resource/")
+    ROOT_URL_FOR_DATASET_ACCESS = CONSTANT(value=r"https://opendata.maryland.gov/resource/")
     SOCRATA_CREDENTIALS_JSON_FILE = CONSTANT(value=os.path.join(_ROOT_URL_FOR_PROJECT.value, r"EssentialExtraFilesForOpenDataInspectorSuccess\Credentials_OpenDataInspector_ToSocrata.json"))
     # THREAD_COUNT = CONSTANT(value=8)
     TURN_ON_WRITE_OUTPUT_TO_CSV = CONSTANT(value=True)          # OPTION
