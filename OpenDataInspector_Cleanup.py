@@ -16,7 +16,7 @@ def main():
 
     # VARIABLES
     _ROOT_URL_FOR_PROJECT = os.path.dirname(__file__)
-    baseline_date = datetime(2018, 8, 3)
+    BASELINE_DATE = datetime(2018, 8, 3)
     LIMIT_MAX_AND_OFFSET = 10000
     ROOT_MD_OPENDATA_DOMAIN = r"https://opendata.maryland.gov"
     ROOT_URL_FOR_DATASET_ACCESS = r"{root}/resource/".format(root=ROOT_MD_OPENDATA_DOMAIN)
@@ -147,7 +147,7 @@ def main():
             overview_date = obj.get("date", None)
             overview_date_obj = parser.parse(overview_date)
             overview_row_id = obj.get("row_id", None)
-            if overview_date_obj < baseline_date:
+            if overview_date_obj < BASELINE_DATE:
                 overview_outdated_row_ids_list.append({":row_id": overview_row_id, ":deleted": True})
 
         number_of_overview_records_returned = len(overview_json)
@@ -190,7 +190,7 @@ def main():
             field_date = str(obj.get("date", None))
             field_date_obj = parser.parse(field_date)
             field_row_id = obj.get("row_id", None)
-            if field_date_obj < baseline_date:
+            if field_date_obj < BASELINE_DATE:
                 field_outdated_row_ids_list.append({":row_id": field_row_id, ":deleted": True})
 
         number_of_field_records_returned = len(field_json)
