@@ -1,29 +1,32 @@
 """
 
 """
+# TODO: Documentation
+# TODO: Switch baseline date to be a moving window of time. So, datetime.now - 12 months for example
+# TODO: Deploy as a visual cron task
+#
 
 
 def main():
     # IMPORTS
+    from datetime import datetime
     from sodapy import Socrata
     import dateutil.parser as parser
-    from datetime import datetime
     import json
     import os
     import requests
     import time
-    import pandas as pd
 
     # VARIABLES
     _ROOT_URL_FOR_PROJECT = os.path.dirname(__file__)
-    BASELINE_DATE = datetime(2018, 8, 3)
+    BASELINE_DATE = datetime(2018, 8, 3)  # FIXME
     LIMIT_MAX_AND_OFFSET = 10000
     ROOT_MD_OPENDATA_DOMAIN = r"https://opendata.maryland.gov"
     ROOT_URL_FOR_DATASET_ACCESS = r"{root}/resource/".format(root=ROOT_MD_OPENDATA_DOMAIN)
     SOCRATA_CREDENTIALS_JSON_FILE = os.path.join(_ROOT_URL_FOR_PROJECT,
                                                  r"EssentialExtraFilesForOpenDataInspectorSuccess\Credentials_OpenDataInspector_ToSocrata.json")
-    overview_outdated_row_ids_list = []
     field_outdated_row_ids_list = []
+    overview_outdated_row_ids_list = []
 
     # ASSERTS
     # CLASSES
@@ -113,7 +116,6 @@ def main():
         return
 
     # FUNCTIONALITY
-
     # Socrata related variables, derived
     credentials_json_file_contents = read_json_file(SOCRATA_CREDENTIALS_JSON_FILE)
     credentials_json = load_json(json_file_contents=credentials_json_file_contents)
@@ -126,6 +128,7 @@ def main():
     socrata_overview_level_dataset_app_id = get_dataset_identifier(credentials_json=credentials_json,
                                                                    dataset_key="overview_level_dataset")
 
+    # __________________________________________________________________________
     # Overview level operations
     print("Entering Overview Dataset Operations")
     more_overview_records_exist_than_response_limit_allows = True
@@ -169,7 +172,7 @@ def main():
     #                                      content_type='json')
     socrata_client_overview_level.close()
 
-
+    # __________________________________________________________________________
     # Field level operations
     print("Entering Field Dataset Operations")
     more_field_records_exist_than_response_limit_allows = True
@@ -207,7 +210,7 @@ def main():
 
     print(field_outdated_row_ids_list)
 
-    # socrata_client_overview_level.upsert(dataset_identifier=socrata_overview_level_dataset_app_id,
+    # socrata_client_overview_level.upsert(dataset_identifier=socrata_field_level_dataset_app_id,
     #                                      payload=field_outdated_row_ids_list,
     #                                      content_type='json')
 
