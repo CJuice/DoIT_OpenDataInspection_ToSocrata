@@ -11,6 +11,8 @@ Upsert output statistics to Socrata dataset providing an overview at the dataset
 Author: CJuice
 Date: 20180601
 Revisions: 20190311, CJuice, Revised root url for data.maryland.gov to opendata.maryland.gov due to domain change
+20190502, CJuice. ODI process failed in function build_datasets_inventory. When called for "link" key in dictionary
+    a string was not returned as expected. A dictionary was returned. Added a second call to "url" to get url string.
 """
 
 # TODO: requests module has built in json decoder. if r is the response then r.json() is the call. Evaluate use.
@@ -103,7 +105,7 @@ def main():
         datasets_dictionary = {}
         for record_obj in freshness_report_json_objects:
             dataset_name = record_obj["dataset_name"]
-            api_id = os.path.basename(record_obj["link"])
+            api_id = os.path.basename(record_obj["link"]["url"])  # 20190502 revised by CJuice. Added ["url"].
             datasets_dictionary[dataset_name] = api_id
         return datasets_dictionary
 
