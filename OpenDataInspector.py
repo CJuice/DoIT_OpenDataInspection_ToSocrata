@@ -54,9 +54,11 @@ def main():
     REAL_PROPERTY_HIDDEN_NAMES_API_ID = CONSTANT(value="ed4q-f8tm")
     REAL_PROPERTY_HIDDEN_NAMES_JSON_FILE = CONSTANT(value=os.path.join(_ROOT_URL_FOR_PROJECT.value, r"EssentialExtraFilesForOpenDataInspectorSuccess\RealPropertyHiddenOwner_JSON.json"))
     ROOT_PATH_FOR_CSV_OUTPUT = CONSTANT(value=os.path.join(_ROOT_URL_FOR_PROJECT.value, "OUTPUT_CSVs"))
-    ROOT_URL_FOR_DATASET_ACCESS = CONSTANT(value=r"https://opendata.maryland.gov/resource/")
+    ROOT_MD_OPENDATA_DOMAIN = CONSTANT(value=r"https://opendata.maryland.gov")
+    ROOT_URL_FOR_DATASET_ACCESS = CONSTANT(value="{root}/resource/".format(root=ROOT_MD_OPENDATA_DOMAIN.value))
     SOCRATA_CREDENTIALS_JSON_FILE = CONSTANT(value=os.path.join(_ROOT_URL_FOR_PROJECT.value, r"EssentialExtraFilesForOpenDataInspectorSuccess\Credentials_OpenDataInspector_ToSocrata.json"))
     # THREAD_COUNT = CONSTANT(value=8)
+    TESTING = False
     TURN_ON_WRITE_OUTPUT_TO_CSV = CONSTANT(value=True)          # OPTION
     TURN_ON_UPSERT_OUTPUT_TO_SOCRATA = CONSTANT(value=True)     # OPTION
 
@@ -175,11 +177,10 @@ def main():
         for key, value in dataset_credentials.items():  # Value of None in json is seen as string, need to convert or fails
             if value == 'None':
                 dataset_credentials[key] = None
-        maryland_domain = dataset_credentials["maryland_domain"]
         maryland_app_token = dataset_credentials["app_token"]
         username = access_credentials["username"]
         password = access_credentials["password"]
-        return Socrata(domain=maryland_domain, app_token=maryland_app_token, username=username, password=password)
+        return Socrata(domain=ROOT_MD_OPENDATA_DOMAIN.value, app_token=maryland_app_token, username=username, password=password)
 
     def generate_freshness_report_json_objects(dataset_url):
         """
@@ -505,8 +506,10 @@ def main():
                                                        dataset_key="field_level_dataset")
     socrata_client_overview_level = create_socrata_client(credentials_json=credentials_json,
                                                           dataset_key="overview_level_dataset")
+    # NOTE: As of 20190502 field level app id was mntg-vj5e
     socrata_field_level_dataset_app_id = get_dataset_identifier(credentials_json=credentials_json,
                                                                 dataset_key="field_level_dataset")
+    # NOTE: As of 20190502 overview level app id was 76t8-zc7u
     socrata_overview_level_dataset_app_id = get_dataset_identifier(credentials_json=credentials_json,
                                                                    dataset_key="overview_level_dataset")
 
@@ -522,12 +525,13 @@ def main():
                                                                                       spaces_allowed=True)
         url_socrata_data_page = build_dataset_url(url_root=ROOT_URL_FOR_DATASET_ACCESS.value,
                                                   api_id=dataset_api_id)
+
 #_______________________________________________________________________________________________________________________
         # FOR TESTING - avoid huge datasets on test runs
-        # huge_datasets_api_s = (REAL_PROPERTY_HIDDEN_NAMES_API_ID.value,)
-        # if dataset_api_id not in huge_datasets_api_s:
-        #     print("Dataset Skipped Intentionally (TESTING): {}".format(dataset_name_with_spaces_but_no_illegal))
-        #     continue
+        huge_datasets_api_s = (REAL_PROPERTY_HIDDEN_NAMES_API_ID.value,)
+        if TESTING and dataset_api_id not in huge_datasets_api_s:
+            print("Dataset Skipped Intentionally (TESTING): {}".format(dataset_name_with_spaces_but_no_illegal))
+            continue
 #_______________________________________________________________________________________________________________________
 
         dataset_counter += 1
