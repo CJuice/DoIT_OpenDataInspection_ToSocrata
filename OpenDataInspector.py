@@ -44,13 +44,14 @@ def main():
     TURN_ON_UPSERT_OUTPUT_TO_SOCRATA = True     # OPTION
 
     _root_url_for_project = os.path.dirname(__file__)
+    config_file = None
     correctional_enterprises_employees_api_id = "mux9-y6mb"
     correctional_enterprises_employees_json_file = os.path.join(
         _root_url_for_project,
         r"EssentialExtraFilesForOpenDataInspectorSuccess\MarylandCorrectionalEnterprises_JSON.json")
 
     data_freshness_report_api_id = "t8k3-edvn"
-    data_json_url_name = "data.json"
+    # data_json_url_name = "data.json" # TODO: for redesign toward using data.json instead of data freshness report
     field_level_stats_file_name = "_FIELD_LEVEL_STATS"
     field_level_stats_socrata_headers = ['DATASET NAME', 'FIELD NAME', 'TOTAL NULL VALUE COUNT', 'TOTAL RECORD COUNT',
                                          'PERCENT NULL', 'HYPERLINK', 'DATASET ID', 'FIELD ID', 'DATE', 'ROW ID']
@@ -458,8 +459,6 @@ def main():
         return
 
     # FUNCTIONALITY
-    config_file = None
-
     if TESTING:
         config_file = r"EssentialExtraFilesForOpenDataInspectorSuccess\Credentials_TESTING.cfg"  # TEST
 
