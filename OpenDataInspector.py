@@ -13,16 +13,15 @@ Date: 20180601
 Revisions: 20190311, CJuice, Revised root url for data.maryland.gov to opendata.maryland.gov due to domain change
 20190502, CJuice. ODI process failed in function build_datasets_inventory. When called for "link" key in dictionary
     a string was not returned as expected. A dictionary was returned. Added a second call to "url" to get url string.
+20190509, CJuice, Refactoring and cleanup to improve readability and quality of code
 """
 
-# TODO: requests module has built in json decoder. if r is the response then r.json() is the call. Evaluate use.
 # TODO: evaluate use of requests params keyword and pass limit and offset in a dictionary
 # TODO: add logging
 
-# FIXME: DO NOT COMMIT CHANGES TO GITHUB. NEED TO ADDRESS THE CHANGES I WIPED BUT WANT TO IMPLEMENT.
-
 
 def main():
+
     # IMPORTS
     from collections import namedtuple
     from datetime import date
@@ -38,6 +37,10 @@ def main():
     CONSTANT = namedtuple("CONSTANT", ["value"])
 
     # VARIABLES (alphabetic)
+    TESTING = True                              # OPTION
+    TURN_ON_WRITE_OUTPUT_TO_CSV = True          # OPTION
+    TURN_ON_UPSERT_OUTPUT_TO_SOCRATA = True     # OPTION
+
     _root_url_for_project = os.path.dirname(__file__)
     correctional_enterprises_employees_api_id = "mux9-y6mb"
     correctional_enterprises_employees_json_file = os.path.join(
@@ -64,16 +67,15 @@ def main():
         r"EssentialExtraFilesForOpenDataInspectorSuccess\RealPropertyHiddenOwner_JSON.json")
     root_path_for_csv_output = os.path.join(_root_url_for_project, "OUTPUT_CSVs")
     root_url_for_dataset_access = r"{root_url}/resource/".format(root_url=opendata_maryland_gov_url)
-    socrata_credentials_json_file = os.path.join(
-        _root_url_for_project,
-        r"EssentialExtraFilesForOpenDataInspectorSuccess\Credentials_OpenDataInspector_ToSocrata_TESTING.json")   # TESTING
-    # socrata_credentials_json_file = os.path.join(
-    #     _root_url_for_project,
-    #     r"EssentialExtraFilesForOpenDataInspectorSuccess\Credentials_OpenDataInspector_ToSocrata.json") # PRODUCTION
 
-    TESTING = True                              # OPTION
-    TURN_ON_WRITE_OUTPUT_TO_CSV = True          # OPTION
-    TURN_ON_UPSERT_OUTPUT_TO_SOCRATA = True     # OPTION
+    if TESTING:
+        socrata_credentials_json_file = os.path.join(
+            _root_url_for_project,
+            r"EssentialExtraFilesForOpenDataInspectorSuccess\Credentials_OpenDataInspector_ToSocrata_TESTING.json")  # TEST
+    else:
+        socrata_credentials_json_file = os.path.join(
+            _root_url_for_project,
+            r"EssentialExtraFilesForOpenDataInspectorSuccess\Credentials_OpenDataInspector_ToSocrata.json")  # PROD
 
     assert os.path.exists(correctional_enterprises_employees_json_file)
     assert os.path.exists(real_property_hidden_names_json_file)
