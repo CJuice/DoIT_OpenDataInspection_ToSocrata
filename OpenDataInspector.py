@@ -579,8 +579,7 @@ def main():
             # Maryland Statewide Vehicle Crashes are excel files, not Socrata records,
             #   but they will return empty json objects endlessly
             if dataset_name.startswith(md_statewide_vehicle_crash_startswith):
-                problem_message = """Intentionally skipped. Dataset was an excel file as of 20180409. 
-                                    Call to Socrata endlessly returns empty json objects."""
+                problem_message = """Intentionally skipped. Dataset was an excel file as of 20180409. Call to Socrata endlessly returns empty json objects."""
                 is_problematic = True
                 break
             cycle_record_count = 0
