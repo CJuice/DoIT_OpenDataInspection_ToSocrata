@@ -11,6 +11,8 @@ Upsert output statistics to Socrata dataset providing an overview at the dataset
 Author: CJuice
 Date: 20180601
 Revisions: 20190311, CJuice, Revised root url for data.maryland.gov to opendata.maryland.gov due to domain change
+20190502, CJuice. ODI process failed in function build_datasets_inventory. When called for "link" key in dictionary
+    a string was not returned as expected. A dictionary was returned. Added a second call to "url" to get url string.
 """
 
 # TODO: requests module has built in json decoder. if r is the response then r.json() is the call. Evaluate use.
@@ -55,10 +57,12 @@ def main():
     REAL_PROPERTY_HIDDEN_NAMES_JSON_FILE = os.path.join(_ROOT_URL_FOR_PROJECT, r"EssentialExtraFilesForOpenDataInspectorSuccess\RealPropertyHiddenOwner_JSON.json")
     ROOT_PATH_FOR_CSV_OUTPUT = os.path.join(_ROOT_URL_FOR_PROJECT, "OUTPUT_CSVs")
     ROOT_URL_FOR_DATASET_ACCESS = r"https://opendata.maryland.gov/resource/"
-    SOCRATA_CREDENTIALS_JSON_FILE = os.path.join(_ROOT_URL_FOR_PROJECT.value, r"EssentialExtraFilesForOpenDataInspectorSuccess\Credentials_OpenDataInspector_ToSocrata_TESTING.json")   # TESTING
-    # SOCRATA_CREDENTIALS_JSON_FILE = os.path.join(_ROOT_URL_FOR_PROJECT.value, r"EssentialExtraFilesForOpenDataInspectorSuccess\Credentials_OpenDataInspector_ToSocrata.json") # PRODUCTION
-    TURN_ON_WRITE_OUTPUT_TO_CSV = False         # OPTION
-    TURN_ON_UPSERT_OUTPUT_TO_SOCRATA = True    # OPTION
+    SOCRATA_CREDENTIALS_JSON_FILE = os.path.join(_ROOT_URL_FOR_PROJECT, r"EssentialExtraFilesForOpenDataInspectorSuccess\Credentials_OpenDataInspector_ToSocrata_TESTING.json")   # TESTING
+    # SOCRATA_CREDENTIALS_JSON_FILE = os.path.join(_ROOT_URL_FOR_PROJECT, r"EssentialExtraFilesForOpenDataInspectorSuccess\Credentials_OpenDataInspector_ToSocrata.json") # PRODUCTION
+
+    TESTING = True                              # OPTION
+    TURN_ON_WRITE_OUTPUT_TO_CSV = True          # OPTION
+    TURN_ON_UPSERT_OUTPUT_TO_SOCRATA = True     # OPTION
 
     assert os.path.exists(CORRECTIONAL_ENTERPRISES_EMPLOYEES_JSON_FILE)
     assert os.path.exists(REAL_PROPERTY_HIDDEN_NAMES_JSON_FILE)
@@ -90,7 +94,7 @@ def main():
         # if the record count exceeds the initial limit then the url must include offset parameter
         if total_count == None and limit_amount == 0 and offset == 0:
             return "{}{}".format(url_root, api_id)
-        elif total_count >= LIMIT_MAX_AND_OFFSET.value:
+        elif total_count >= LIMIT_MAX_AND_OFFSET:
             return "{}{}.json?$limit={}&$offset={}".format(url_root, api_id, limit_amount, offset)
         else:
             return "{}{}.json?$limit={}".format(url_root, api_id, limit_amount)
@@ -453,9 +457,9 @@ def main():
 
     # FUNCTIONALITY
     if TURN_ON_WRITE_OUTPUT_TO_CSV:
-        print("Writing to csv (TURN_ON_WRITE_OUTPUT_TO_CSV.value = True)")
+        print("Writing to csv (TURN_ON_WRITE_OUTPUT_TO_CSV = True)")
     if TURN_ON_UPSERT_OUTPUT_TO_SOCRATA:
-        print("Upserting to Socrata (TURN_ON_UPSERT_OUTPUT_TO_SOCRATA.value = True)")
+        print("Upserting to Socrata (TURN_ON_UPSERT_OUTPUT_TO_SOCRATA = True)")
 
     # Initiate csv report files
     problem_datasets_csv_filename = build_csv_file_name_with_date(today_date_string=build_today_date_string(),
@@ -524,10 +528,10 @@ def main():
                                                   api_id=dataset_api_id)
 #_______________________________________________________________________________________________________________________
         # FOR TESTING - avoid huge datasets on test runs
-        # huge_datasets_api_s = (REAL_PROPERTY_HIDDEN_NAMES_API_ID.value,)
-        # if dataset_api_id not in huge_datasets_api_s:
-        #     print("Dataset Skipped Intentionally (TESTING): {}".format(dataset_name_with_spaces_but_no_illegal))
-        #     continue
+        huge_datasets_api_s = (REAL_PROPERTY_HIDDEN_NAMES_API_ID,)
+        if TESTING and dataset_api_id in huge_datasets_api_s:
+            print("Dataset Skipped Intentionally (TESTING): {}".format(dataset_name_with_spaces_but_no_illegal))
+            continue
 #_______________________________________________________________________________________________________________________
 
         dataset_counter += 1
