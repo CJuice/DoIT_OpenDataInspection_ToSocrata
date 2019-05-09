@@ -3,29 +3,30 @@ Inspect all datasets in MD DoIT Open Data Portal on Socrata, inventory null data
 
 Use the Data Freshness Report dataset to identify all datasets to be inspected by this process.
 For each dataset, request records from Socrata, inventory nulls in records, and repeat until all records have been
- processed.
+ processed. Capture the number of columns, number of records, calculate total number of values, determine number of
+ values that are null, and calculate the percent null.
 Identify datasets without nulls, with nulls, and problem datasets that couldn't be processed.
 Upsert output statistics to Socrata dataset providing an overview at the dataset level, a Socrata dataset
  providing information at the field level, a csv file capturing all problematic datasets, and a csv file
- reporting on the performance of the script. Optionally, also write dataset level and field level statistics to csv files.
+ reporting on the performance of the script. Optionally, also write dataset level and field level statistics to csv
+ files.
 Author: CJuice
 Date: 20180601
 Revisions: 20190311, CJuice, Revised root url for data.maryland.gov to opendata.maryland.gov due to domain change
 20190502, CJuice. ODI process failed in function build_datasets_inventory. When called for "link" key in dictionary
     a string was not returned as expected. A dictionary was returned. Added a second call to "url" to get url string.
-20190509, CJuice, Refactoring and cleanup to improve readability and quality of code
+20190509, CJuice, Refactoring and cleanup to improve readability and quality of code. Remove use of named tuples.
+    Switch to config file from json file use for credentials.
 """
 
 # TODO: evaluate use of requests params keyword and pass limit and offset in a dictionary
 # TODO: add logging
-# TODO: Add type hints
-# TODO: add
+# TODO: switch to config parser
 
 
 def main():
 
     # IMPORTS
-    from collections import namedtuple
     from datetime import date
     import json
     import os
@@ -35,8 +36,6 @@ def main():
     from sodapy import Socrata
 
     process_start_time = time.time()
-
-    CONSTANT = namedtuple("CONSTANT", ["value"])
 
     # VARIABLES (alphabetic)
     TESTING = True                              # OPTION
@@ -168,7 +167,7 @@ def main():
         """
         return sum(null_counts_list)
 
-    def calculate_total_number_of_values_in_dataset(total_records_processed: int, number_of_fields_in_dataset: int) -> float:
+    def calculate_total_number_of_values_in_dataset(total_records_processed: int, number_of_fields_in_dataset: int) -> int:
         """
         Calculate the total number of values in a dataset from the number of records and columns/fields.
 
@@ -179,7 +178,7 @@ def main():
         if number_of_fields_in_dataset is None:
             return 0
         else:
-            return float(total_records_processed * number_of_fields_in_dataset)
+            return int(total_records_processed * number_of_fields_in_dataset)
 
     def create_socrata_client(credentials_json: dict, maryland_domain: str, dataset_key: str) -> Socrata:
         """
@@ -243,7 +242,7 @@ def main():
         """
         return credentials_json[dataset_key]["app_id"]
 
-    def grab_field_names_for_mega_columned_datasets(socrata_json_object):
+    def grab_field_names_for_mega_columned_datasets(socrata_json_object: dict) -> dict:
         """
         Generate a dictionary of column names. Specific to very large datasets where field names are suppressed by socrata.
 
@@ -269,7 +268,7 @@ def main():
         fields_dict = {"visible":field_names_list_visible, "hidden":field_names_list_hidden}
         return fields_dict
 
-    def handle_illegal_characters_in_string(string_with_illegals, spaces_allowed=False):
+    def handle_illegal_characters_in_string(string_with_illegals: str, spaces_allowed: bool = False):
         """
         Process string, only allowing alpha and numeric. Spaces can be allowed.
 
@@ -284,7 +283,7 @@ def main():
         strings_list = re.findall(re_string,string_with_illegals)
         return "".join(strings_list)
 
-    def inspect_record_for_null_values(field_null_count_dict, record_dictionary):
+    def inspect_record_for_null_values(field_null_count_dict: dict, record_dictionary: dict) -> None:
         """
         Inspect the socrata record for the number of null values
 
@@ -300,7 +299,7 @@ def main():
                 field_null_count_dict[field_name] += 1
         return
 
-    def load_json(json_file_contents):
+    def load_json(json_file_contents) -> dict:
         """
         Load .json file contents
 
@@ -309,7 +308,7 @@ def main():
         """
         return json.loads(json_file_contents)
 
-    def make_zipper(dataset_headers_list, record_list):
+    def make_zipper(dataset_headers_list: list, record_list: list) -> dict:
         """
         Zip headers and data values and return a dictionary
 
@@ -319,7 +318,7 @@ def main():
         """
         return dict(zip(dataset_headers_list, record_list))
 
-    def read_json_file(file_path):
+    def read_json_file(file_path: str):
         """
         Read a .json file and grab all contents.
 
@@ -330,7 +329,7 @@ def main():
             filecontents = file_handler.read()
         return filecontents
 
-    def upsert_to_socrata(client, dataset_identifier, zipper):
+    def upsert_to_socrata(client: Socrata, dataset_identifier: str, zipper: dict) -> None:
         """
         Upsert data to Socrata dataset.
 
@@ -345,7 +344,7 @@ def main():
             print("Error upserting to Socrata: {}. {}".format(dataset_identifier, e))
         return
 
-    def write_dataset_results_to_csv(root_file_destination_location, filename, header_list=None, records_list_list=None):
+    def write_dataset_results_to_csv(root_file_destination_location: str, filename: str, header_list: list = None, records_list_list: list = None) -> None:
         """
         Write a csv file containing the analysis results specific to a single dataset
 
@@ -379,7 +378,7 @@ def main():
             exit()
         return
 
-    def write_overview_stats_to_csv(root_file_destination_location, filename, header_list=None, record_list=None):
+    def write_overview_stats_to_csv(root_file_destination_location: str, filename: str, header_list: list = None, record_list: list = None) -> None:
         """
         Write analysis results for entire process, as an overview of all datasets, to .csv
 
@@ -396,16 +395,16 @@ def main():
                 dataset_name, hyperlink, total_number_of_dataset_columns, total_number_of_dataset_records, total_number_of_values, total_number_of_null_fields, percent_null, api_id, data_provider, date_analyzed, row_id = record_list
                 with open(file_path, 'a') as file_handler:
                     file_handler.write("{},{},{},{},{},{},{:6.2f},{},{},{},{}\n".format(dataset_name,
-                                                                                     hyperlink,
-                                                                                     total_number_of_dataset_columns,
-                                                                                     total_number_of_dataset_records,
-                                                                                     total_number_of_values,
-                                                                                     total_number_of_null_fields,
-                                                                                     percent_null,
-                                                                                     api_id,
-                                                                                     data_provider,
-                                                                                     date_analyzed,
-                                                                                     row_id)
+                                                                                        hyperlink,
+                                                                                        total_number_of_dataset_columns,
+                                                                                        total_number_of_dataset_records,
+                                                                                        total_number_of_values,
+                                                                                        total_number_of_null_fields,
+                                                                                        percent_null,
+                                                                                        api_id,
+                                                                                        data_provider,
+                                                                                        date_analyzed,
+                                                                                        row_id)
                                        )
             else:
                 with open(file_path, "w") as file_handler:
@@ -415,7 +414,7 @@ def main():
             exit()
         return
 
-    def write_problematic_datasets_to_csv(root_file_destination_location, filename, dataset_name=None, message=None, resource=None):
+    def write_problematic_datasets_to_csv(root_file_destination_location: str, filename: str, dataset_name: str = None, message: str = None, resource: str = None) -> None:
         """
         Write to .csv any datasets that encountered problems during processing.
         :param root_file_destination_location:  Path to the location where the file directory where the file will be created
@@ -438,10 +437,10 @@ def main():
             exit()
         return
 
-    def write_script_performance_summary(root_file_destination_location, filename, start_time: float,
-                                         number_of_datasets_in_data_freshness_report, dataset_counter,
-                                         valid_nulls_dataset_counter, valid_no_null_dataset_counter,
-                                         problem_dataset_counter):
+    def write_script_performance_summary(root_file_destination_location: str, filename, start_time: float,
+                                         number_of_datasets_in_data_freshness_report: int, dataset_counter: int,
+                                         valid_nulls_dataset_counter: int, valid_no_null_dataset_counter: int,
+                                         problem_dataset_counter: int) -> None:
         """
         Write a summary file that details the performance of this script during processing
 
@@ -483,6 +482,7 @@ def main():
                                       filename=problem_datasets_csv_filename)
 
     if TURN_ON_WRITE_OUTPUT_TO_CSV:
+
         # Optional output to CSV's, per original functionality. Initiate files here.
         field_level_csv_filename = build_csv_file_name_with_date(today_date_string=build_today_date_string(),
                                                                  filename=field_level_stats_file_name)
@@ -508,6 +508,7 @@ def main():
     dict_of_socrata_dataset_IDs = build_datasets_inventory(freshness_report_json_objects=freshness_report_json_objects)
     number_of_datasets_in_data_freshness_report = len(dict_of_socrata_dataset_IDs)
     dict_of_socrata_dataset_providers = {}
+
     for record_obj in freshness_report_json_objects:
         data_freshness_dataset_name = (record_obj["dataset_name"])
         data_freshness_report_dataset_name_noillegal = handle_illegal_characters_in_string(
@@ -546,13 +547,14 @@ def main():
                                                                                       spaces_allowed=True)
         url_socrata_data_page = build_dataset_url(url_root=root_url_for_dataset_access,
                                                   api_id=dataset_api_id)
-#_______________________________________________________________________________________________________________________
+
+        #______________________________________________________________________________________________________________
         # FOR TESTING - avoid huge datasets on test runs
         huge_datasets_api_s = (real_property_hidden_names_api_id,)
         if TESTING and dataset_api_id in huge_datasets_api_s:
             print("Dataset Skipped Intentionally (TESTING): {}".format(dataset_name_with_spaces_but_no_illegal))
             continue
-#_______________________________________________________________________________________________________________________
+        #______________________________________________________________________________________________________________
 
         dataset_counter += 1
         print("{}: {} ............. {}".format(dataset_counter, dataset_name_with_spaces_but_no_illegal.upper(),
@@ -639,7 +641,7 @@ def main():
                 pass
 
             # If special, first time through load the field names from their pre-made json files.
-            if json_file_contents != None:
+            if json_file_contents is not None:
                 json_loaded = load_json(json_file_contents=json_file_contents)
                 field_names_dictionary = grab_field_names_for_mega_columned_datasets(socrata_json_object=json_loaded)
                 field_headers = field_names_dictionary["visible"]
@@ -665,7 +667,8 @@ def main():
                 break
 
             for record in response_list_of_dicts:
-                inspect_record_for_null_values(field_null_count_dict=null_count_for_each_field_dict, record_dictionary=record)
+                inspect_record_for_null_values(field_null_count_dict=null_count_for_each_field_dict,
+                                               record_dictionary=record)
 
             record_count_increase = len(response_list_of_dicts)
             cycle_record_count += record_count_increase
@@ -682,7 +685,7 @@ def main():
 
         # Calculate statistics for outputs
         total_number_of_null_values = calculate_total_number_of_null_values_per_dataset(
-            null_counts_list=null_count_for_each_field_dict.values())
+            null_counts_list=list(null_count_for_each_field_dict.values()))
         total_number_of_values_in_dataset = calculate_total_number_of_values_in_dataset(
             total_records_processed=total_record_count,
             number_of_fields_in_dataset=number_of_columns_in_dataset)
