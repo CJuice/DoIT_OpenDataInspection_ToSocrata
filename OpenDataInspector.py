@@ -177,9 +177,12 @@ def main():
         """
         Create and return a Socrata client for use.
 
+        NOTE_1: It seems absolutely essential the the domain be a domain and not a url; 'https://opendata.maryland.gov'
+            will not substitute for 'opendata.maryland.gov'.
+
         :param cfg_parser: config file parser
         :param dataset_key: the section key of interest
-        :param maryland_domain: domain for maryland open data portal. NOTE: NOT THE URL !!!
+        :param maryland_domain: domain for maryland open data portal.
         :return: Socrata connection client
         """
 
