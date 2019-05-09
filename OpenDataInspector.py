@@ -103,7 +103,7 @@ def main():
         :return: String url
         """
         # if the record count exceeds the initial limit then the url must include offset parameter
-        if total_count == None and limit_amount == 0 and offset == 0:
+        if total_count is None and limit_amount == 0 and offset == 0:
             return "{}{}".format(url_root, api_id)
         elif total_count >= limit_max_and_offset:
             return "{}{}.json?$limit={}&$offset={}".format(url_root, api_id, limit_amount, offset)
@@ -603,7 +603,7 @@ def main():
             # For datasets with a lot of fields it looks like Socrata doesn't return the
             #   field headers in the response.info() so the X-SODA2-Fields key DNE.
             # Only need to get the list of socrata response keys the first time through
-            if socrata_response_info_key_list == None:
+            if socrata_response_info_key_list is None:
                 socrata_response_info_key_list = []
                 for key in socrata_url_response.headers.keys():
                     socrata_response_info_key_list.append(key.lower())
@@ -611,25 +611,25 @@ def main():
                 pass
 
             # Only need to get the field headers the first time through
-            if dataset_fields_string == None and "x-soda2-fields" in socrata_response_info_key_list:
+            if dataset_fields_string is None and "x-soda2-fields" in socrata_response_info_key_list:
                 dataset_fields_string = socrata_url_response.headers["X-SODA2-Fields"]
-            elif dataset_fields_string == None and "x-soda2-fields" not in socrata_response_info_key_list:
+            elif dataset_fields_string is None and "x-soda2-fields" not in socrata_response_info_key_list:
                 is_special_too_many_headers_dataset = True
             else:
                 pass
 
             # If Socrata didn't send the headers see if the dataset is one of the two known to be too big
-            if field_headers == None and is_special_too_many_headers_dataset and dataset_api_id == real_property_hidden_names_api_id:
+            if field_headers is None and is_special_too_many_headers_dataset and dataset_api_id == real_property_hidden_names_api_id:
                 json_file_contents = read_json_file(file_path=real_property_hidden_names_json_file)
-            elif field_headers == None and is_special_too_many_headers_dataset and dataset_api_id == correctional_enterprises_employees_api_id:
+            elif field_headers is None and is_special_too_many_headers_dataset and dataset_api_id == correctional_enterprises_employees_api_id:
                 json_file_contents = read_json_file(file_path=correctional_enterprises_employees_json_file)
-            elif field_headers == None and is_special_too_many_headers_dataset:
+            elif field_headers is None and is_special_too_many_headers_dataset:
                 # In case a new previously unknown dataset comes along with too many fields for transfer
                 problem_message = "Too many fields. Socrata suppressed X-SODA2-FIELDS value in response."
                 problem_resource = url
                 is_problematic = True
                 break
-            elif field_headers == None:
+            elif field_headers is None:
                 field_headers = re.findall("[a-zA-Z0-9_]+", dataset_fields_string)
             else:
                 pass
@@ -647,7 +647,7 @@ def main():
                 for header in field_headers:
                     null_count_for_each_field_dict[header] = 0
 
-            if number_of_columns_in_dataset == None:
+            if number_of_columns_in_dataset is None:
                 number_of_columns_in_dataset = len(field_headers)
 
             response_list_of_dicts = socrata_url_response.json()
