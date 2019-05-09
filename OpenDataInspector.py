@@ -11,13 +11,13 @@ Upsert output statistics to Socrata dataset providing an overview at the dataset
 Author: CJuice
 Date: 20180601
 Revisions: 20190311, CJuice, Revised root url for data.maryland.gov to opendata.maryland.gov due to domain change
-20190502, CJuice. ODI process failed in function build_datasets_inventory. When called for "link" key in dictionary
-    a string was not returned as expected. A dictionary was returned. Added a second call to "url" to get url string.
 """
 
 # TODO: requests module has built in json decoder. if r is the response then r.json() is the call. Evaluate use.
 # TODO: evaluate use of requests params keyword and pass limit and offset in a dictionary
 # TODO: add logging
+
+# FIXME: DO NOT COMMIT CHANGES TO GITHUB. NEED TO ADDRESS THE CHANGES I WIPED BUT WANT TO IMPLEMENT.
 
 
 def main():
@@ -39,33 +39,31 @@ def main():
     CONSTANT = namedtuple("CONSTANT", ["value"])
 
     # VARIABLES (alphabetic)
-    _ROOT_URL_FOR_PROJECT = CONSTANT(value=os.path.dirname(__file__))
-    CORRECTIONAL_ENTERPRISES_EMPLOYEES_API_ID = CONSTANT(value="mux9-y6mb")
-    CORRECTIONAL_ENTERPRISES_EMPLOYEES_JSON_FILE = CONSTANT(value=os.path.join(_ROOT_URL_FOR_PROJECT.value, r"EssentialExtraFilesForOpenDataInspectorSuccess\MarylandCorrectionalEnterprises_JSON.json"))
-    DATA_FRESHNESS_REPORT_API_ID = CONSTANT(value="t8k3-edvn")
-    FIELD_LEVEL_STATS_FILE_NAME = CONSTANT(value="_FIELD_LEVEL_STATS")
-    FIELD_LEVEL_STATS_SOCRATA_HEADERS = CONSTANT(value=['DATASET NAME', 'FIELD NAME', 'TOTAL NULL VALUE COUNT', 'TOTAL RECORD COUNT', 'PERCENT NULL', 'HYPERLINK', 'DATASET ID', 'FIELD ID', 'DATE', 'ROW ID'])
-    LIMIT_MAX_AND_OFFSET = CONSTANT(value=10000)
-    MD_STATEWIDE_VEHICLE_CRASH_STARTSWITH = CONSTANT(value="Maryland Statewide Vehicle Crashes")
-    OVERVIEW_LEVEL_STATS_FILE_NAME = CONSTANT(value="_OVERVIEW_STATS")
-    OVERVIEW_LEVEL_STATS_SOCRATA_HEADERS = CONSTANT(value=['DATASET NAME', 'HYPERLINK', 'TOTAL COLUMN COUNT', 'TOTAL RECORD COUNT', 'TOTAL VALUE COUNT', 'TOTAL NULL VALUE COUNT', 'PERCENT NULL', 'DATASET ID', 'DATA PROVIDER', 'DATE', 'ROW ID'])
-    PERFORMANCE_SUMMARY_FILE_NAME = CONSTANT(value="__script_performance_summary")
-    PROBLEM_DATASETS_FILE_NAME = CONSTANT(value="_PROBLEM_DATASETS")
-    REAL_PROPERTY_HIDDEN_NAMES_API_ID = CONSTANT(value="ed4q-f8tm")
-    REAL_PROPERTY_HIDDEN_NAMES_JSON_FILE = CONSTANT(value=os.path.join(_ROOT_URL_FOR_PROJECT.value, r"EssentialExtraFilesForOpenDataInspectorSuccess\RealPropertyHiddenOwner_JSON.json"))
-    ROOT_PATH_FOR_CSV_OUTPUT = CONSTANT(value=os.path.join(_ROOT_URL_FOR_PROJECT.value, "OUTPUT_CSVs"))
-    ROOT_MD_OPENDATA_DOMAIN = CONSTANT(value=r"https://opendata.maryland.gov")
-    ROOT_URL_FOR_DATASET_ACCESS = CONSTANT(value="{root}/resource/".format(root=ROOT_MD_OPENDATA_DOMAIN.value))
-    SOCRATA_CREDENTIALS_JSON_FILE = CONSTANT(value=os.path.join(_ROOT_URL_FOR_PROJECT.value, r"EssentialExtraFilesForOpenDataInspectorSuccess\Credentials_OpenDataInspector_ToSocrata.json"))
-    # THREAD_COUNT = CONSTANT(value=8)
-    TESTING = False
-    TURN_ON_WRITE_OUTPUT_TO_CSV = CONSTANT(value=True)          # OPTION
-    TURN_ON_UPSERT_OUTPUT_TO_SOCRATA = CONSTANT(value=True)     # OPTION
+    _ROOT_URL_FOR_PROJECT = os.path.dirname(__file__)
+    CORRECTIONAL_ENTERPRISES_EMPLOYEES_API_ID = "mux9-y6mb"
+    CORRECTIONAL_ENTERPRISES_EMPLOYEES_JSON_FILE = os.path.join(_ROOT_URL_FOR_PROJECT, r"EssentialExtraFilesForOpenDataInspectorSuccess\MarylandCorrectionalEnterprises_JSON.json")
+    DATA_FRESHNESS_REPORT_API_ID = "t8k3-edvn"
+    FIELD_LEVEL_STATS_FILE_NAME = "_FIELD_LEVEL_STATS"
+    FIELD_LEVEL_STATS_SOCRATA_HEADERS = ['DATASET NAME', 'FIELD NAME', 'TOTAL NULL VALUE COUNT', 'TOTAL RECORD COUNT', 'PERCENT NULL', 'HYPERLINK', 'DATASET ID', 'FIELD ID', 'DATE', 'ROW ID']
+    LIMIT_MAX_AND_OFFSET = 10000
+    MD_STATEWIDE_VEHICLE_CRASH_STARTSWITH = "Maryland Statewide Vehicle Crashes"
+    OVERVIEW_LEVEL_STATS_FILE_NAME = "_OVERVIEW_STATS"
+    OVERVIEW_LEVEL_STATS_SOCRATA_HEADERS = ['DATASET NAME', 'HYPERLINK', 'TOTAL COLUMN COUNT', 'TOTAL RECORD COUNT', 'TOTAL VALUE COUNT', 'TOTAL NULL VALUE COUNT', 'PERCENT NULL', 'DATASET ID', 'DATA PROVIDER', 'DATE', 'ROW ID']
+    PERFORMANCE_SUMMARY_FILE_NAME = "__script_performance_summary"
+    PROBLEM_DATASETS_FILE_NAME = "_PROBLEM_DATASETS"
+    REAL_PROPERTY_HIDDEN_NAMES_API_ID = "ed4q-f8tm"
+    REAL_PROPERTY_HIDDEN_NAMES_JSON_FILE = os.path.join(_ROOT_URL_FOR_PROJECT, r"EssentialExtraFilesForOpenDataInspectorSuccess\RealPropertyHiddenOwner_JSON.json")
+    ROOT_PATH_FOR_CSV_OUTPUT = os.path.join(_ROOT_URL_FOR_PROJECT, "OUTPUT_CSVs")
+    ROOT_URL_FOR_DATASET_ACCESS = r"https://opendata.maryland.gov/resource/"
+    SOCRATA_CREDENTIALS_JSON_FILE = os.path.join(_ROOT_URL_FOR_PROJECT.value, r"EssentialExtraFilesForOpenDataInspectorSuccess\Credentials_OpenDataInspector_ToSocrata_TESTING.json")   # TESTING
+    # SOCRATA_CREDENTIALS_JSON_FILE = os.path.join(_ROOT_URL_FOR_PROJECT.value, r"EssentialExtraFilesForOpenDataInspectorSuccess\Credentials_OpenDataInspector_ToSocrata.json") # PRODUCTION
+    TURN_ON_WRITE_OUTPUT_TO_CSV = False         # OPTION
+    TURN_ON_UPSERT_OUTPUT_TO_SOCRATA = True    # OPTION
 
-    assert os.path.exists(CORRECTIONAL_ENTERPRISES_EMPLOYEES_JSON_FILE.value)
-    assert os.path.exists(REAL_PROPERTY_HIDDEN_NAMES_JSON_FILE.value)
-    assert os.path.exists(ROOT_PATH_FOR_CSV_OUTPUT.value)
-    assert os.path.exists(SOCRATA_CREDENTIALS_JSON_FILE.value)
+    assert os.path.exists(CORRECTIONAL_ENTERPRISES_EMPLOYEES_JSON_FILE)
+    assert os.path.exists(REAL_PROPERTY_HIDDEN_NAMES_JSON_FILE)
+    assert os.path.exists(ROOT_PATH_FOR_CSV_OUTPUT)
+    assert os.path.exists(SOCRATA_CREDENTIALS_JSON_FILE)
 
     # FUNCTIONS (alphabetic)
     def build_csv_file_name_with_date(today_date_string, filename):
@@ -177,10 +175,11 @@ def main():
         for key, value in dataset_credentials.items():  # Value of None in json is seen as string, need to convert or fails
             if value == 'None':
                 dataset_credentials[key] = None
+        maryland_domain = dataset_credentials["maryland_domain"]
         maryland_app_token = dataset_credentials["app_token"]
         username = access_credentials["username"]
         password = access_credentials["password"]
-        return Socrata(domain=ROOT_MD_OPENDATA_DOMAIN.value, app_token=maryland_app_token, username=username, password=password)
+        return Socrata(domain=maryland_domain, app_token=maryland_app_token, username=username, password=password)
 
     def generate_freshness_report_json_objects(dataset_url):
         """
@@ -453,34 +452,34 @@ def main():
         return
 
     # FUNCTIONALITY
-    if TURN_ON_WRITE_OUTPUT_TO_CSV.value:
+    if TURN_ON_WRITE_OUTPUT_TO_CSV:
         print("Writing to csv (TURN_ON_WRITE_OUTPUT_TO_CSV.value = True)")
-    if TURN_ON_UPSERT_OUTPUT_TO_SOCRATA.value:
+    if TURN_ON_UPSERT_OUTPUT_TO_SOCRATA:
         print("Upserting to Socrata (TURN_ON_UPSERT_OUTPUT_TO_SOCRATA.value = True)")
 
     # Initiate csv report files
     problem_datasets_csv_filename = build_csv_file_name_with_date(today_date_string=build_today_date_string(),
-                                                                  filename=PROBLEM_DATASETS_FILE_NAME.value)
-    write_problematic_datasets_to_csv(root_file_destination_location=ROOT_PATH_FOR_CSV_OUTPUT.value,
+                                                                  filename=PROBLEM_DATASETS_FILE_NAME)
+    write_problematic_datasets_to_csv(root_file_destination_location=ROOT_PATH_FOR_CSV_OUTPUT,
                                       filename=problem_datasets_csv_filename)
 
-    if TURN_ON_WRITE_OUTPUT_TO_CSV.value:
+    if TURN_ON_WRITE_OUTPUT_TO_CSV:
         # Optional output to CSV's, per original functionality. Initiate files here.
         field_level_csv_filename = build_csv_file_name_with_date(today_date_string=build_today_date_string(),
-                                                                 filename=FIELD_LEVEL_STATS_FILE_NAME.value)
-        write_dataset_results_to_csv(root_file_destination_location=ROOT_PATH_FOR_CSV_OUTPUT.value,
+                                                                 filename=FIELD_LEVEL_STATS_FILE_NAME)
+        write_dataset_results_to_csv(root_file_destination_location=ROOT_PATH_FOR_CSV_OUTPUT,
                                      filename=field_level_csv_filename,
-                                     header_list=FIELD_LEVEL_STATS_SOCRATA_HEADERS.value)
+                                     header_list=FIELD_LEVEL_STATS_SOCRATA_HEADERS)
         overview_csv_filename = build_csv_file_name_with_date(today_date_string=build_today_date_string(),
-                                                              filename=OVERVIEW_LEVEL_STATS_FILE_NAME.value)
-        write_overview_stats_to_csv(root_file_destination_location=ROOT_PATH_FOR_CSV_OUTPUT.value,
+                                                              filename=OVERVIEW_LEVEL_STATS_FILE_NAME)
+        write_overview_stats_to_csv(root_file_destination_location=ROOT_PATH_FOR_CSV_OUTPUT,
                                     filename=overview_csv_filename,
-                                    header_list=OVERVIEW_LEVEL_STATS_SOCRATA_HEADERS.value)
+                                    header_list=OVERVIEW_LEVEL_STATS_SOCRATA_HEADERS)
 
     # Need an inventory of all Maryland Socrata datasets; will gather from the data freshness report.
-    data_freshness_url = build_dataset_url(url_root=ROOT_URL_FOR_DATASET_ACCESS.value,
-                                           api_id=DATA_FRESHNESS_REPORT_API_ID.value,
-                                           limit_amount=LIMIT_MAX_AND_OFFSET.value,
+    data_freshness_url = build_dataset_url(url_root=ROOT_URL_FOR_DATASET_ACCESS,
+                                           api_id=DATA_FRESHNESS_REPORT_API_ID,
+                                           limit_amount=LIMIT_MAX_AND_OFFSET,
                                            offset=0,
                                            total_count=0)
     freshness_report_json_objects = generate_freshness_report_json_objects(dataset_url=data_freshness_url)
@@ -500,16 +499,14 @@ def main():
             provider_name_noillegal)
 
     # Socrata related variables, derived
-    credentials_json_file_contents = read_json_file(SOCRATA_CREDENTIALS_JSON_FILE.value)
+    credentials_json_file_contents = read_json_file(SOCRATA_CREDENTIALS_JSON_FILE)
     credentials_json = load_json(json_file_contents=credentials_json_file_contents)
     socrata_client_field_level = create_socrata_client(credentials_json=credentials_json,
                                                        dataset_key="field_level_dataset")
     socrata_client_overview_level = create_socrata_client(credentials_json=credentials_json,
                                                           dataset_key="overview_level_dataset")
-    # NOTE: As of 20190502 field level app id was mntg-vj5e
     socrata_field_level_dataset_app_id = get_dataset_identifier(credentials_json=credentials_json,
                                                                 dataset_key="field_level_dataset")
-    # NOTE: As of 20190502 overview level app id was 76t8-zc7u
     socrata_overview_level_dataset_app_id = get_dataset_identifier(credentials_json=credentials_json,
                                                                    dataset_key="overview_level_dataset")
 
@@ -523,15 +520,14 @@ def main():
     for dataset_name, dataset_api_id in dict_of_socrata_dataset_IDs.items():
         dataset_name_with_spaces_but_no_illegal = handle_illegal_characters_in_string(string_with_illegals=dataset_name,
                                                                                       spaces_allowed=True)
-        url_socrata_data_page = build_dataset_url(url_root=ROOT_URL_FOR_DATASET_ACCESS.value,
+        url_socrata_data_page = build_dataset_url(url_root=ROOT_URL_FOR_DATASET_ACCESS,
                                                   api_id=dataset_api_id)
-
 #_______________________________________________________________________________________________________________________
         # FOR TESTING - avoid huge datasets on test runs
-        huge_datasets_api_s = (REAL_PROPERTY_HIDDEN_NAMES_API_ID.value,)
-        if TESTING and dataset_api_id not in huge_datasets_api_s:
-            print("Dataset Skipped Intentionally (TESTING): {}".format(dataset_name_with_spaces_but_no_illegal))
-            continue
+        # huge_datasets_api_s = (REAL_PROPERTY_HIDDEN_NAMES_API_ID.value,)
+        # if dataset_api_id not in huge_datasets_api_s:
+        #     print("Dataset Skipped Intentionally (TESTING): {}".format(dataset_name_with_spaces_but_no_illegal))
+        #     continue
 #_______________________________________________________________________________________________________________________
 
         dataset_counter += 1
@@ -559,14 +555,14 @@ def main():
 
             # Maryland Statewide Vehicle Crashes are excel files, not Socrata records,
             #   but they will return empty json objects endlessly
-            if dataset_name.startswith(MD_STATEWIDE_VEHICLE_CRASH_STARTSWITH.value):
+            if dataset_name.startswith(MD_STATEWIDE_VEHICLE_CRASH_STARTSWITH):
                 problem_message = "Intentionally skipped. Dataset was an excel file as of 20180409. Call to Socrata endlessly returns empty json objects."
                 is_problematic = True
                 break
             cycle_record_count = 0
-            url = build_dataset_url(url_root=ROOT_URL_FOR_DATASET_ACCESS.value,
+            url = build_dataset_url(url_root=ROOT_URL_FOR_DATASET_ACCESS,
                                     api_id=dataset_api_id,
-                                    limit_amount=LIMIT_MAX_AND_OFFSET.value,
+                                    limit_amount=LIMIT_MAX_AND_OFFSET,
                                     offset=socrata_record_offset_value,
                                     total_count=total_record_count)
             print(url)
@@ -602,10 +598,10 @@ def main():
                 pass
 
             # If Socrata didn't send the headers see if the dataset is one of the two known to be too big
-            if field_headers == None and is_special_too_many_headers_dataset and dataset_api_id == REAL_PROPERTY_HIDDEN_NAMES_API_ID.value:
-                json_file_contents = read_json_file(file_path=REAL_PROPERTY_HIDDEN_NAMES_JSON_FILE.value)
-            elif field_headers == None and is_special_too_many_headers_dataset and dataset_api_id == CORRECTIONAL_ENTERPRISES_EMPLOYEES_API_ID.value:
-                json_file_contents = read_json_file(file_path=CORRECTIONAL_ENTERPRISES_EMPLOYEES_JSON_FILE.value)
+            if field_headers == None and is_special_too_many_headers_dataset and dataset_api_id == REAL_PROPERTY_HIDDEN_NAMES_API_ID:
+                json_file_contents = read_json_file(file_path=REAL_PROPERTY_HIDDEN_NAMES_JSON_FILE)
+            elif field_headers == None and is_special_too_many_headers_dataset and dataset_api_id == CORRECTIONAL_ENTERPRISES_EMPLOYEES_API_ID:
+                json_file_contents = read_json_file(file_path=CORRECTIONAL_ENTERPRISES_EMPLOYEES_JSON_FILE)
             elif field_headers == None and is_special_too_many_headers_dataset:
                 # In case a new previously unknown dataset comes along with too many fields for transfer
                 problem_message = "Too many fields. Socrata suppressed X-SODA2-FIELDS value in response."
@@ -643,31 +639,16 @@ def main():
                 is_problematic = True
                 break
 
-            # After Socrata coaching call, where we were troubleshooting the variance in nulls between runs for static
-            # datasets and where it was suggested that passing mutable dictionary to threading could lead to issues,
-            # I cut out the threading and am using a straight for loop. It may not be as fast but there is no chance
-            # of the mutable dictionary being operated on concurrently. Saw no change in output after running this style.
             for record in response_list_of_dicts:
                 inspect_record_for_null_values(field_null_count_dict=null_count_for_each_field_dict, record_dictionary=record)
-
-            # BELOW WAS PREVIOUS IMPLEMENTATION
-            # Multithreading implementation to accelerate data processing
-            # http://chriskiehl.com/article/parallelism-in-one-line/
-            # partial_function_for_multithreading = partial(inspect_record_for_null_values, null_count_for_each_field_dict)
-            # pool = ThreadPool(THREAD_COUNT.value)
-            # pool.map(partial_function_for_multithreading, response_list_of_dicts)
-            # pool.close()
-            # pool.join()
-            # Note, alternate implementation of the above using a context manager
-            # with ThreadPool(THREAD_COUNT.value) as pool:
-            #   pool.map(partial_function_for_multithreading, response_list_of_dicts)
 
             record_count_increase = len(response_list_of_dicts)
             cycle_record_count += record_count_increase
             total_record_count += record_count_increase
 
             # Any cycle_record_count that equals the max limit indicates another request is needed
-            if cycle_record_count == LIMIT_MAX_AND_OFFSET.value:
+            if cycle_record_count == LIMIT_MAX_AND_OFFSET:
+
                 # Give Socrata servers small interval before requesting more
                 time.sleep(0.2)
                 socrata_record_offset_value = cycle_record_count + socrata_record_offset_value
@@ -685,7 +666,7 @@ def main():
 
         if is_problematic:
             problem_dataset_counter += 1
-            write_problematic_datasets_to_csv(root_file_destination_location=ROOT_PATH_FOR_CSV_OUTPUT.value,
+            write_problematic_datasets_to_csv(root_file_destination_location=ROOT_PATH_FOR_CSV_OUTPUT,
                                               filename=problem_datasets_csv_filename,
                                               dataset_name=dataset_name_with_spaces_but_no_illegal,
                                               message=problem_message,
@@ -708,9 +689,9 @@ def main():
                                            total_record_count, percent_nulls_in_field, url_socrata_data_page, dataset_api_id,
                                            unique_field_id, build_today_date_string(), unique_row_id_field_level]
                 field_records_list_list.append(field_level_record_list)
-                zipper_field_level = make_zipper(dataset_headers_list=FIELD_LEVEL_STATS_SOCRATA_HEADERS.value,
+                zipper_field_level = make_zipper(dataset_headers_list=FIELD_LEVEL_STATS_SOCRATA_HEADERS,
                                                  record_list=field_level_record_list)
-                if TURN_ON_UPSERT_OUTPUT_TO_SOCRATA.value:
+                if TURN_ON_UPSERT_OUTPUT_TO_SOCRATA:
                     upsert_to_socrata(client=socrata_client_field_level,
                                       dataset_identifier=socrata_field_level_dataset_app_id, zipper=zipper_field_level)
 
@@ -722,24 +703,24 @@ def main():
                                     dict_of_socrata_dataset_providers[dataset_name_with_spaces_but_no_illegal],
                                     build_today_date_string(), unique_row_id_overview_level
                                     ]
-            zipper_overview_level = make_zipper(dataset_headers_list=OVERVIEW_LEVEL_STATS_SOCRATA_HEADERS.value,
+            zipper_overview_level = make_zipper(dataset_headers_list=OVERVIEW_LEVEL_STATS_SOCRATA_HEADERS,
                                                 record_list=overview_level_record_list)
-            if TURN_ON_UPSERT_OUTPUT_TO_SOCRATA.value:
+            if TURN_ON_UPSERT_OUTPUT_TO_SOCRATA:
                 upsert_to_socrata(client=socrata_client_overview_level,
                                   dataset_identifier=socrata_overview_level_dataset_app_id, zipper=zipper_overview_level)
                 print("\tUPSERTED: {}".format(dataset_name))
 
-            if TURN_ON_WRITE_OUTPUT_TO_CSV.value:
+            if TURN_ON_WRITE_OUTPUT_TO_CSV:
                 # Optional output to CSV's, per original functionality. Write output here.
                 # Append dataset results to the field level stats file
 
-                write_dataset_results_to_csv(root_file_destination_location=ROOT_PATH_FOR_CSV_OUTPUT.value,
+                write_dataset_results_to_csv(root_file_destination_location=ROOT_PATH_FOR_CSV_OUTPUT,
                                              filename=field_level_csv_filename,
                                              header_list=None,
                                              records_list_list=field_records_list_list)
 
                 # Append the overview stats for each dataset to the overview stats csv
-                write_overview_stats_to_csv(root_file_destination_location=ROOT_PATH_FOR_CSV_OUTPUT.value,
+                write_overview_stats_to_csv(root_file_destination_location=ROOT_PATH_FOR_CSV_OUTPUT,
                                             filename=overview_csv_filename,
                                             header_list=None,
                                             record_list=overview_level_record_list)
@@ -749,8 +730,8 @@ def main():
     socrata_client_field_level.close()
 
     performance_summary_filename = build_csv_file_name_with_date(today_date_string=build_today_date_string(),
-                                                                 filename=PERFORMANCE_SUMMARY_FILE_NAME.value)
-    write_script_performance_summary(root_file_destination_location=ROOT_PATH_FOR_CSV_OUTPUT.value,
+                                                                 filename=PERFORMANCE_SUMMARY_FILE_NAME)
+    write_script_performance_summary(root_file_destination_location=ROOT_PATH_FOR_CSV_OUTPUT,
                                      filename=performance_summary_filename,
                                      start_time=process_start_time,
                                      number_of_datasets_in_data_freshness_report=number_of_datasets_in_data_freshness_report,
@@ -762,6 +743,7 @@ def main():
 
     print("Process time (minutes) = {:4.2f}\n".format(calculate_time_taken(process_start_time)/60.0))
     return
+
 
 if __name__ == "__main__":
     main()
