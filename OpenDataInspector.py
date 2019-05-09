@@ -462,6 +462,8 @@ def main():
         return
 
     # FUNCTIONALITY
+    print(f"Testing variable = {TESTING}")
+
     if TESTING:
         config_file = r"EssentialExtraFilesForOpenDataInspectorSuccess\Credentials_TESTING.cfg"  # TEST
 
