@@ -28,12 +28,13 @@ def main():
 
     # IMPORTS
     from datetime import date
+    from sodapy import Socrata
+    import configparser
     import json
     import os
     import re
-    import time
     import requests
-    from sodapy import Socrata
+    import time
 
     process_start_time = time.time()
 
@@ -47,6 +48,7 @@ def main():
     correctional_enterprises_employees_json_file = os.path.join(
         _root_url_for_project,
         r"EssentialExtraFilesForOpenDataInspectorSuccess\MarylandCorrectionalEnterprises_JSON.json")
+
     data_freshness_report_api_id = "t8k3-edvn"
     data_json_url_name = "data.json"
     field_level_stats_file_name = "_FIELD_LEVEL_STATS"
@@ -69,19 +71,9 @@ def main():
     root_path_for_csv_output = os.path.join(_root_url_for_project, "OUTPUT_CSVs")
     root_url_for_dataset_access = r"{root_url}/resource/".format(root_url=opendata_maryland_gov_url)
 
-    if TESTING:
-        socrata_credentials_json_file = os.path.join(
-            _root_url_for_project,
-            r"EssentialExtraFilesForOpenDataInspectorSuccess\Credentials_OpenDataInspector_ToSocrata_TESTING.json")  # TEST
-    else:
-        socrata_credentials_json_file = os.path.join(
-            _root_url_for_project,
-            r"EssentialExtraFilesForOpenDataInspectorSuccess\Credentials_OpenDataInspector_ToSocrata.json")  # PROD
-
     assert os.path.exists(correctional_enterprises_employees_json_file)
     assert os.path.exists(real_property_hidden_names_json_file)
     assert os.path.exists(root_path_for_csv_output)
-    assert os.path.exists(socrata_credentials_json_file)
 
     # FUNCTIONS (alphabetic)
     def build_csv_file_name_with_date(today_date_string: str, filename: str) -> str:
@@ -180,24 +172,20 @@ def main():
         else:
             return int(total_records_processed * number_of_fields_in_dataset)
 
-    def create_socrata_client(credentials_json: dict, maryland_domain: str, dataset_key: str) -> Socrata:
+    def create_socrata_client(cfg_parser: configparser.ConfigParser, maryland_domain: str, dataset_key: str) -> Socrata:
         """
         Create and return a Socrata client for use.
 
-        :param credentials_json: the json code from the credentials file
-        :param dataset_key: the dictionary key of interest
+        :param cfg_parser: config file parser
+        :param dataset_key: the section key of interest
+        :param maryland_domain: domain for maryland open data portal. NOTE: NOT THE URL !!!
         :return: Socrata connection client
         """
-        dataset_credentials = credentials_json[dataset_key]
-        access_credentials = credentials_json["access_credentials"]
-        for key, value in dataset_credentials.items():  # Value of None in json is seen as str, need to convert or fails
-            if value == 'None':
-                dataset_credentials[key] = None
-        # maryland_domain = dataset_credentials["maryland_domain"]
-        maryland_app_token = dataset_credentials["app_token"]
-        username = access_credentials["username"]
-        password = access_credentials["password"]
-        return Socrata(domain=maryland_domain, app_token=maryland_app_token, username=username, password=password)
+
+        app_token = cfg_parser[dataset_key]["APP_TOKEN"]
+        username = cfg_parser["DEFAULT"]["USERNAME"]
+        password = cfg_parser["DEFAULT"]["PASSWORD"]
+        return Socrata(domain=maryland_domain, app_token=app_token, username=username, password=password)
 
     def generate_freshness_report_json_objects(dataset_url: str) -> dict:
         """
@@ -231,16 +219,6 @@ def main():
         sep = str(separator)
         arg_stringified_list = [str(arg) for arg in args]
         return sep.join(arg_stringified_list)
-
-    def get_dataset_identifier(credentials_json: dict, dataset_key: str) -> str:
-        """
-        Get the unique Socrata dataset identifier from the credentials json file
-
-        :param credentials_json: the json code from the credentials file
-        :param dataset_key: the dictionary key of interest
-        :return: string, unique Socrata dataset identifier
-        """
-        return credentials_json[dataset_key]["app_id"]
 
     def grab_field_names_for_mega_columned_datasets(socrata_json_object: dict) -> dict:
         """
@@ -328,6 +306,16 @@ def main():
         with open(file_path, 'r') as file_handler:
             filecontents = file_handler.read()
         return filecontents
+
+    def setup_config(cfg_file: str) -> configparser.ConfigParser:
+        """
+        Instantiate the parser for accessing a config file.
+        :param cfg_file: config file to access
+        :return:
+        """
+        cfg_parser = configparser.ConfigParser()
+        cfg_parser.read(filenames=cfg_file)
+        return cfg_parser
 
     def upsert_to_socrata(client: Socrata, dataset_identifier: str, zipper: dict) -> None:
         """
@@ -470,6 +458,16 @@ def main():
         return
 
     # FUNCTIONALITY
+    config_file = None
+
+    if TESTING:
+        config_file = r"EssentialExtraFilesForOpenDataInspectorSuccess\Credentials_TESTING.cfg"  # TEST
+
+    else:
+        config_file = r"EssentialExtraFilesForOpenDataInspectorSuccess\Credentials.cfg"  # PROD
+
+    config_parser = setup_config(cfg_file=config_file)
+
     if TURN_ON_WRITE_OUTPUT_TO_CSV:
         print("Writing to csv (TURN_ON_WRITE_OUTPUT_TO_CSV = True)")
     if TURN_ON_UPSERT_OUTPUT_TO_SOCRATA:
@@ -522,18 +520,15 @@ def main():
             provider_name_noillegal)
 
     # Socrata related variables, derived
-    credentials_json_file_contents = read_json_file(socrata_credentials_json_file)
-    credentials_json = load_json(json_file_contents=credentials_json_file_contents)
-    socrata_client_field_level = create_socrata_client(credentials_json=credentials_json,
+    socrata_client_field_level = create_socrata_client(cfg_parser=config_parser,
                                                        maryland_domain=opendata_maryland_gov_domain,
-                                                       dataset_key="field_level_dataset")
-    socrata_client_overview_level = create_socrata_client(credentials_json=credentials_json,
+                                                       dataset_key="FIELD")
+    socrata_field_level_dataset_app_id = config_parser["FIELD"]["APP_ID"]
+
+    socrata_client_overview_level = create_socrata_client(cfg_parser=config_parser,
                                                           maryland_domain=opendata_maryland_gov_domain,
-                                                          dataset_key="overview_level_dataset")
-    socrata_field_level_dataset_app_id = get_dataset_identifier(credentials_json=credentials_json,
-                                                                dataset_key="field_level_dataset")
-    socrata_overview_level_dataset_app_id = get_dataset_identifier(credentials_json=credentials_json,
-                                                                   dataset_key="overview_level_dataset")
+                                                          dataset_key="OVERVIEW")
+    socrata_overview_level_dataset_app_id = config_parser["OVERVIEW"]["APP_ID"]
 
     # Variables for next lower scope (alphabetic)
     dataset_counter = 0
