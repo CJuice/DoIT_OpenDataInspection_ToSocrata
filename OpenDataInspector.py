@@ -18,6 +18,8 @@ Revisions: 20190311, CJuice, Revised root url for data.maryland.gov to opendata.
 
 # TODO: evaluate use of requests params keyword and pass limit and offset in a dictionary
 # TODO: add logging
+# TODO: Add type hints
+# TODO: add
 
 
 def main():
@@ -83,7 +85,7 @@ def main():
     assert os.path.exists(socrata_credentials_json_file)
 
     # FUNCTIONS (alphabetic)
-    def build_csv_file_name_with_date(today_date_string, filename):
+    def build_csv_file_name_with_date(today_date_string: str, filename: str) -> str:
         """
         Build a string, ending in .csv, that contains todays date and the provided file name
 
@@ -93,7 +95,7 @@ def main():
         """
         return "{}_{}.csv".format(today_date_string, filename)
 
-    def build_dataset_url(url_root, api_id, limit_amount=0, offset=0, total_count=None):
+    def build_dataset_url(url_root: str, api_id: str, limit_amount: int = 0, offset: int = 0, total_count: int = None) -> str:
         """
         Build the url used for each request for data from socrata
 
@@ -112,7 +114,7 @@ def main():
         else:
             return "{}{}.json?$limit={}".format(url_root, api_id, limit_amount)
 
-    def build_datasets_inventory(freshness_report_json_objects):
+    def build_datasets_inventory(freshness_report_json_objects: dict) -> dict:
         """
         Process json response code for dataset names and api id's and build a dictionary for use
 
@@ -126,7 +128,7 @@ def main():
             datasets_dictionary[dataset_name] = api_id
         return datasets_dictionary
 
-    def build_today_date_string():
+    def build_today_date_string() -> str:
         """
         Build a string representing todays date.
 
@@ -134,7 +136,7 @@ def main():
         """
         return "{:%Y-%m-%d}".format(date.today())
 
-    def calculate_percent_null(null_count_total, total_data_values):
+    def calculate_percent_null(null_count_total: int, total_data_values: int) -> float:
         """
         Calculate the percent of all possible data values, not rows or columns, that are null
 
@@ -148,7 +150,7 @@ def main():
             percent_full_float = float(null_count_total / total_data_values) * 100.0
             return round(percent_full_float, 2)
 
-    def calculate_time_taken(start_time):
+    def calculate_time_taken(start_time: float) -> float:
         """
         Calculate the time difference between now and the value passed as the start time
 
@@ -157,7 +159,7 @@ def main():
         """
         return (time.time() - start_time)
 
-    def calculate_total_number_of_null_values_per_dataset(null_counts_list):
+    def calculate_total_number_of_null_values_per_dataset(null_counts_list: list) -> int:
         """
         Calculate the total number of null/empty values in a dataset
 
@@ -166,7 +168,7 @@ def main():
         """
         return sum(null_counts_list)
 
-    def calculate_total_number_of_values_in_dataset(total_records_processed, number_of_fields_in_dataset):
+    def calculate_total_number_of_values_in_dataset(total_records_processed: int, number_of_fields_in_dataset: int) -> float:
         """
         Calculate the total number of values in a dataset from the number of records and columns/fields.
 
@@ -179,7 +181,7 @@ def main():
         else:
             return float(total_records_processed * number_of_fields_in_dataset)
 
-    def create_socrata_client(credentials_json, maryland_domain, dataset_key):
+    def create_socrata_client(credentials_json: dict, maryland_domain: str, dataset_key: str) -> Socrata:
         """
         Create and return a Socrata client for use.
 
@@ -189,7 +191,7 @@ def main():
         """
         dataset_credentials = credentials_json[dataset_key]
         access_credentials = credentials_json["access_credentials"]
-        for key, value in dataset_credentials.items():  # Value of None in json is seen as string, need to convert or fails
+        for key, value in dataset_credentials.items():  # Value of None in json is seen as str, need to convert or fails
             if value == 'None':
                 dataset_credentials[key] = None
         # maryland_domain = dataset_credentials["maryland_domain"]
@@ -198,7 +200,7 @@ def main():
         password = access_credentials["password"]
         return Socrata(domain=maryland_domain, app_token=maryland_app_token, username=username, password=password)
 
-    def generate_freshness_report_json_objects(dataset_url):
+    def generate_freshness_report_json_objects(dataset_url: str) -> dict:
         """
         Makes request to socrata url for dataset and processes response into json objects
 
@@ -219,11 +221,11 @@ def main():
             json_objects = response.json()
         return json_objects
 
-    def generate_id_from_args(*args, separator="."):
+    def generate_id_from_args(*args, separator: str = "."):
         """
         Create a string from args, separated by separator value.
 
-        :param args: Any number of arguements to be used
+        :param args: Any number of arguments to be used
         :param separator: Character to separate the args
         :return: String value of args separated by separator
         """
@@ -231,7 +233,7 @@ def main():
         arg_stringified_list = [str(arg) for arg in args]
         return sep.join(arg_stringified_list)
 
-    def get_dataset_identifier(credentials_json, dataset_key):
+    def get_dataset_identifier(credentials_json: dict, dataset_key: str) -> str:
         """
         Get the unique Socrata dataset identifier from the credentials json file
 
@@ -333,7 +335,7 @@ def main():
         Upsert data to Socrata dataset.
 
         :param client: Socrata connection client
-        :param dataset_identifier: Unique Socrata dataset identifier. Not the data page identifier but the primary page id.
+        :param dataset_identifier: Unique Socrata dataset identifier. Not the data page identifier but primary page id.
         :param zipper: dictionary of zipped results (headers and data values)
         :return: None
         """
@@ -436,7 +438,7 @@ def main():
             exit()
         return
 
-    def write_script_performance_summary(root_file_destination_location, filename, start_time,
+    def write_script_performance_summary(root_file_destination_location, filename, start_time: float,
                                          number_of_datasets_in_data_freshness_report, dataset_counter,
                                          valid_nulls_dataset_counter, valid_no_null_dataset_counter,
                                          problem_dataset_counter):
