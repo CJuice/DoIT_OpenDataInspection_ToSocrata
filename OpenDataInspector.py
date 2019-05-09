@@ -480,6 +480,11 @@ def main():
                                     filename=overview_csv_filename,
                                     header_list=OVERVIEW_LEVEL_STATS_SOCRATA_HEADERS)
 
+    # TODO: Change to use of data.json instead of freshness report output
+    opendata_maryland_gov_url = r"https://opendata.maryland.gov"
+    data_json_url_name = "data.json"
+    freshness_report_json_objects = generate_freshness_report_json_objects(dataset_url=f"{opendata_maryland_gov_url}/{data_json_url_name}")
+
     # Need an inventory of all Maryland Socrata datasets; will gather from the data freshness report.
     data_freshness_url = build_dataset_url(url_root=ROOT_URL_FOR_DATASET_ACCESS,
                                            api_id=DATA_FRESHNESS_REPORT_API_ID,
