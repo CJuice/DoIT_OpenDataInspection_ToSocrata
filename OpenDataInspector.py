@@ -465,10 +465,10 @@ def main():
     print(f"Testing variable = {TESTING}")
 
     if TESTING:
-        config_file = r"EssentialExtraFilesForOpenDataInspectorSuccess\Credentials_TESTING.cfg"  # TEST
+        config_file = r"EssentialExtraFiles\Credentials_TESTING.cfg"  # TEST
 
     else:
-        config_file = r"EssentialExtraFilesForOpenDataInspectorSuccess\Credentials.cfg"  # PROD
+        config_file = r"EssentialExtraFiles\Credentials.cfg"  # PROD
 
     config_parser = setup_config(cfg_file=config_file)
 
