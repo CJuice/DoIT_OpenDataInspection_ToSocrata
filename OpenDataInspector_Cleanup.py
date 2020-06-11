@@ -1,10 +1,17 @@
 """
+Procedural script that deletes aged records in the ODI and GODI datasets on opendata.maryland.gov Socrata portal.
+
+This script gets the ODI and GODI datasets on Socrata, examines the date value in every record, inventories the
+records that meet the date logic check, and then deletes those records. It is intended to flush old records from the
+datasets. It could easily be adapted to any dataset by changing the 4 by 4 code and providing and application id
+for editing the datasets.
 
 """
 # TODO: Documentation
 # TODO: Switch baseline date to be a moving window of time. So, datetime.now - 12 months for example
 # TODO: Deploy as a visual cron task
 
+# TODO: Needs to be adjusted to run on GODI datasets too. Currently only hits ODI datasets
 
 def main():
 
@@ -21,7 +28,7 @@ def main():
 
     _root_url_for_project = os.path.dirname(__file__)
     baseline_date = datetime(2018, 8, 3)  # FIXME
-    config_file = None
+    config_file = None  # See variable assignment below. Depends on TESTING variable.
     field_outdated_row_ids_list = []
     limit_max_and_offset = 10000
     opendata_maryland_gov_domain = "opendata.maryland.gov"
@@ -114,10 +121,10 @@ def main():
 
         # Only useful for understanding what the client.get call is doing
         print(build_dataset_url(url_root=root_url_for_dataset_access,
-                                                 api_id=socrata_overview_level_dataset_app_id,
-                                                 limit_amount=limit_max_and_offset,
-                                                 offset=overview_record_offset_value,
-                                                 total_count=overview_total_record_count))
+                                api_id=socrata_overview_level_dataset_app_id,
+                                limit_amount=limit_max_and_offset,
+                                offset=overview_record_offset_value,
+                                total_count=overview_total_record_count))
 
         # for the private test datasets I had to use the client to access the data. May just move to this style.
         overview_response = socrata_client_overview_level.get(dataset_identifier=socrata_overview_level_dataset_app_id,
